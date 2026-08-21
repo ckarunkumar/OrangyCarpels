@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { UserRole } from '../ui/Layout';
-import { Plus, Pencil, Mail, Phone } from 'lucide-react';
+import { Plus, Mail, Phone, Pencil } from 'lucide-react';
 import { SkeletonRow } from '../ui/Skeleton';
 import EmployeeDrawer, { Employee } from './EmployeeDrawer';
 import EmployeeDetailDrawer from './EmployeeDetailDrawer';
@@ -24,8 +24,8 @@ export default function EmployeesView({ activeRole }: EmployeesViewProps) {
     fetch('/api/employees')
       .then((res) => {
         if (!res.ok) {
-          if (res.status === 403) throw new Error('Access Denied: You do not have permission to view employee registries.');
-          throw new Error('Failed to fetch employee list');
+          if (res.status === 403) throw new Error('Access Denied: You do not have permission to view the employee registry.');
+          throw new Error('Failed to fetch employees list');
         }
         return res.json();
       })
@@ -52,7 +52,6 @@ export default function EmployeesView({ activeRole }: EmployeesViewProps) {
 
   return (
     <>
-      {/* Form Drawer (Add/Edit) */}
       <EmployeeDrawer
         open={drawerOpen}
         mode={drawerMode}
@@ -61,7 +60,6 @@ export default function EmployeesView({ activeRole }: EmployeesViewProps) {
         onSaved={fetchEmployees}
       />
 
-      {/* Detail Slide-In Drawer (Shows only on employee selection) */}
       <EmployeeDetailDrawer
         open={detailOpen}
         employee={selectedEmployee}
@@ -93,8 +91,9 @@ export default function EmployeesView({ activeRole }: EmployeesViewProps) {
             {/* Table Header */}
             <div className="bg-studio-sidebar border-b border-studio-border px-4 py-2 text-[10px] font-bold text-studio-muted uppercase tracking-wider grid grid-cols-12 gap-2 items-center">
               <div className="col-span-2">Emp ID</div>
-              <div className="col-span-4">Name / Role</div>
-              <div className="col-span-3">Email</div>
+              <div className="col-span-3">Name</div>
+              <div className="col-span-2">Role</div>
+              <div className="col-span-2">Email</div>
               <div className="col-span-2">Phone</div>
               <div className="col-span-1 text-right">Status</div>
             </div>
@@ -119,29 +118,35 @@ export default function EmployeesView({ activeRole }: EmployeesViewProps) {
                       </span>
                     </div>
 
-                    {/* Name & Role Badge */}
-                    <div className="col-span-4 min-w-0 pr-2 flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-studio-sidebar flex items-center justify-center text-[10px] font-bold text-studio-muted border border-studio-border shrink-0">
-                        {emp.fullName[0]}
+                    {/* Name */}
+                    <div className="col-span-3 min-w-0 pr-2 flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-studio-sidebar flex items-center justify-center text-[10px] font-bold text-studio-muted border border-studio-border shrink-0 overflow-hidden">
+                        {emp.avatar ? (
+                          <img src={emp.avatar} alt={emp.fullName} className="w-full h-full object-cover" />
+                        ) : (
+                          <span>{emp.fullName[0]}</span>
+                        )}
                       </div>
-                      <div className="min-w-0 flex-1 flex items-center gap-1.5">
-                        <p className="font-semibold text-studio-text truncate group-hover:text-brand-orange transition-colors">
-                          {emp.fullName}
-                        </p>
-                        <span className={`inline-block text-[9px] font-semibold px-1.5 py-0.2 rounded border ${
-                          emp.role === 'Super Admin'
-                            ? 'bg-purple-50 text-purple-700 border-purple-200'
-                            : emp.role === 'Project Manager'
-                            ? 'bg-blue-50 text-blue-700 border-blue-200'
-                            : 'bg-gray-50 text-gray-500 border-gray-200'
-                        }`}>
-                          {emp.role}
-                        </span>
-                      </div>
+                      <p className="font-semibold text-studio-text truncate group-hover:text-brand-orange transition-colors">
+                        {emp.fullName}
+                      </p>
+                    </div>
+
+                    {/* Role (Dedicated Column) */}
+                    <div className="col-span-2">
+                      <span className={`inline-block text-[9px] font-semibold px-2 py-0.5 rounded border ${
+                        emp.role === 'Super Admin'
+                          ? 'bg-purple-50 text-purple-700 border-purple-200'
+                          : emp.role === 'Project Manager'
+                          ? 'bg-blue-50 text-blue-700 border-blue-200'
+                          : 'bg-gray-50 text-gray-600 border-gray-200'
+                      }`}>
+                        {emp.role}
+                      </span>
                     </div>
 
                     {/* Email */}
-                    <div className="col-span-3 text-studio-muted truncate flex items-center gap-1.5">
+                    <div className="col-span-2 text-studio-muted truncate flex items-center gap-1.5">
                       <Mail className="w-3 h-3 text-studio-muted shrink-0" />
                       <span className="truncate">{emp.email}</span>
                     </div>

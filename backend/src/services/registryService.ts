@@ -47,11 +47,20 @@ export interface ProjectWithClient extends ProjectDetail {
 export interface ClientProfile {
   id: string;
   name: string;
+  contactPerson?: string;
   email?: string;
   phone?: string;
+  accountsPerson?: string;
+  accountsEmail?: string;
+  accountsPhone?: string;
   address?: string;
+  country?: string;
+  gstNumber?: string;
+  panNumber?: string;
+  msmeNumber?: string;
   billingCurrency: string;
   defaultBillingType: 'Hourly Rate (T&M)' | 'Monthly Resource Cost (Fixed)' | 'Project Cost (Fixed)';
+  dueTime?: string;
   status: 'Active' | 'Inactive';
   projects: ProjectDetail[];
 }
@@ -141,6 +150,7 @@ export class RegistryService {
         status: data.status || 'Active',
         role: data.role || 'Employee',
         location: data.location || 'Delhi, India',
+        avatar: data.avatar || null,
       },
     });
 
@@ -212,6 +222,7 @@ export class RegistryService {
         ...(data.status !== undefined && { status: data.status }),
         ...(data.role !== undefined && { role: data.role }),
         ...(data.location !== undefined && { location: data.location }),
+        ...(data.avatar !== undefined && { avatar: data.avatar }),
       },
       include: { education: true, experience: true },
     });
@@ -260,11 +271,20 @@ export class RegistryService {
     return clients.map((client) => ({
       id: client.id,
       name: client.name,
+      contactPerson: client.contactPerson || '',
       email: client.email || '',
       phone: client.phone || '',
+      accountsPerson: client.accountsPerson || '',
+      accountsEmail: client.accountsEmail || '',
+      accountsPhone: client.accountsPhone || '',
       address: client.address || '',
+      country: client.country || 'India',
+      gstNumber: client.gstNumber || '',
+      panNumber: client.panNumber || '',
+      msmeNumber: client.msmeNumber || '',
       billingCurrency: client.billingCurrency,
       defaultBillingType: (client.defaultBillingType as ClientProfile['defaultBillingType']) || 'Hourly Rate (T&M)',
+      dueTime: client.dueTime || '30 days',
       status: client.status as 'Active' | 'Inactive',
       projects: client.projects.map((proj) => ({
         id: proj.id,
@@ -286,11 +306,20 @@ export class RegistryService {
     data: {
       id?: string;
       name: string;
+      contactPerson?: string;
       email?: string;
       phone?: string;
+      accountsPerson?: string;
+      accountsEmail?: string;
+      accountsPhone?: string;
       address?: string;
+      country?: string;
+      gstNumber?: string;
+      panNumber?: string;
+      msmeNumber?: string;
       billingCurrency: string;
       defaultBillingType?: string;
+      dueTime?: string;
       status?: 'Active' | 'Inactive';
     }
   ): Promise<ClientProfile> {
@@ -318,11 +347,20 @@ export class RegistryService {
       data: {
         id: targetId,
         name: data.name.trim(),
+        contactPerson: data.contactPerson?.trim() || '',
         email: data.email?.trim() || '',
         phone: data.phone?.trim() || '',
+        accountsPerson: data.accountsPerson?.trim() || '',
+        accountsEmail: data.accountsEmail?.trim() || '',
+        accountsPhone: data.accountsPhone?.trim() || '',
         address: data.address?.trim() || '',
+        country: data.country?.trim() || 'India',
+        gstNumber: data.gstNumber?.trim().toUpperCase() || '',
+        panNumber: data.panNumber?.trim().toUpperCase() || '',
+        msmeNumber: data.msmeNumber?.trim().toUpperCase() || '',
         billingCurrency: data.billingCurrency || 'USD ($)',
         defaultBillingType: data.defaultBillingType || 'Hourly Rate (T&M)',
+        dueTime: data.dueTime || '30 days',
         status: data.status || 'Active',
       },
     });
@@ -330,11 +368,20 @@ export class RegistryService {
     return {
       id: client.id,
       name: client.name,
+      contactPerson: client.contactPerson || '',
       email: client.email || '',
       phone: client.phone || '',
+      accountsPerson: client.accountsPerson || '',
+      accountsEmail: client.accountsEmail || '',
+      accountsPhone: client.accountsPhone || '',
       address: client.address || '',
+      country: client.country || 'India',
+      gstNumber: client.gstNumber || '',
+      panNumber: client.panNumber || '',
+      msmeNumber: client.msmeNumber || '',
       billingCurrency: client.billingCurrency,
       defaultBillingType: (client.defaultBillingType as ClientProfile['defaultBillingType']) || 'Hourly Rate (T&M)',
+      dueTime: client.dueTime || '30 days',
       status: client.status as 'Active' | 'Inactive',
       projects: [],
     };
@@ -348,11 +395,20 @@ export class RegistryService {
     id: string,
     data: {
       name?: string;
+      contactPerson?: string;
       email?: string;
       phone?: string;
+      accountsPerson?: string;
+      accountsEmail?: string;
+      accountsPhone?: string;
       address?: string;
+      country?: string;
+      gstNumber?: string;
+      panNumber?: string;
+      msmeNumber?: string;
       billingCurrency?: string;
       defaultBillingType?: string;
+      dueTime?: string;
       status?: 'Active' | 'Inactive';
     }
   ): Promise<ClientProfile> {
@@ -364,11 +420,20 @@ export class RegistryService {
       where: { id },
       data: {
         ...(data.name !== undefined && { name: data.name.trim() }),
+        ...(data.contactPerson !== undefined && { contactPerson: data.contactPerson.trim() }),
         ...(data.email !== undefined && { email: data.email.trim() }),
         ...(data.phone !== undefined && { phone: data.phone.trim() }),
+        ...(data.accountsPerson !== undefined && { accountsPerson: data.accountsPerson.trim() }),
+        ...(data.accountsEmail !== undefined && { accountsEmail: data.accountsEmail.trim() }),
+        ...(data.accountsPhone !== undefined && { accountsPhone: data.accountsPhone.trim() }),
         ...(data.address !== undefined && { address: data.address.trim() }),
+        ...(data.country !== undefined && { country: data.country.trim() }),
+        ...(data.gstNumber !== undefined && { gstNumber: data.gstNumber.trim().toUpperCase() }),
+        ...(data.panNumber !== undefined && { panNumber: data.panNumber.trim().toUpperCase() }),
+        ...(data.msmeNumber !== undefined && { msmeNumber: data.msmeNumber.trim().toUpperCase() }),
         ...(data.billingCurrency !== undefined && { billingCurrency: data.billingCurrency }),
         ...(data.defaultBillingType !== undefined && { defaultBillingType: data.defaultBillingType }),
+        ...(data.dueTime !== undefined && { dueTime: data.dueTime }),
         ...(data.status !== undefined && { status: data.status }),
       },
       include: { projects: true },
@@ -377,11 +442,20 @@ export class RegistryService {
     return {
       id: updated.id,
       name: updated.name,
+      contactPerson: updated.contactPerson || '',
       email: updated.email || '',
       phone: updated.phone || '',
+      accountsPerson: updated.accountsPerson || '',
+      accountsEmail: updated.accountsEmail || '',
+      accountsPhone: updated.accountsPhone || '',
       address: updated.address || '',
+      country: updated.country || 'India',
+      gstNumber: updated.gstNumber || '',
+      panNumber: updated.panNumber || '',
+      msmeNumber: updated.msmeNumber || '',
       billingCurrency: updated.billingCurrency,
       defaultBillingType: (updated.defaultBillingType as ClientProfile['defaultBillingType']) || 'Hourly Rate (T&M)',
+      dueTime: updated.dueTime || '30 days',
       status: updated.status as 'Active' | 'Inactive',
       projects: updated.projects.map((p) => ({
         id: p.id,

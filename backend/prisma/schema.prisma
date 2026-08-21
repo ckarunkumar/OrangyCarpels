@@ -56,11 +56,20 @@ model Experience {
 model Client {
   id                 String    @id
   name               String
-  email              String?   @default("")
-  phone              String?   @default("")
-  address            String?   @default("")
+  contactPerson      String?   @default("")
+  email              String?   @default("") // Contact Email
+  phone              String?   @default("") // Contact Phone
+  accountsPerson     String?   @default("")
+  accountsEmail      String?   @default("")
+  accountsPhone      String?   @default("")
+  address            String?   @default("") // Office Address
+  country            String?   @default("India")
+  gstNumber          String?   @default("")
+  panNumber          String?   @default("")
+  msmeNumber         String?   @default("")
   billingCurrency    String    @default("USD ($)")
   defaultBillingType String    @default("Hourly Rate (T&M)")
+  dueTime            String    @default("30 days") // 15 days, 30 days, 45 days, 60 days, 90 days
   status             String    @default("Active") // Active, Inactive
   projects           Project[]
 }

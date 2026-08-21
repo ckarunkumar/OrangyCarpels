@@ -4,225 +4,189 @@ import { X } from 'lucide-react';
 export interface Client {
   id: string;
   name: string;
+  contactPerson?: string;
   email?: string;
   phone?: string;
+  accountsPerson?: string;
+  accountsEmail?: string;
+  accountsPhone?: string;
   address?: string;
+  country?: string;
+  gstNumber?: string;
+  panNumber?: string;
+  msmeNumber?: string;
   billingCurrency: string;
   defaultBillingType?: 'Hourly Rate (T&M)' | 'Monthly Resource Cost (Fixed)' | 'Project Cost (Fixed)';
+  dueTime?: '15 days' | '30 days' | '45 days' | '60 days' | '90 days' | string;
   status: 'Active' | 'Inactive';
   projects?: Array<{
-    id: string;
-    name: string;
-    billingType: string;
-    rate: string;
-    budgetHours: number;
-    loggedHours: number;
-    status: 'Active' | 'Inactive';
+    id: string; name: string; billingType: string; rate: string;
+    budgetHours: number; loggedHours: number; status: 'Active' | 'Inactive';
   }>;
 }
 
-const CURRENCIES = [
-  'USD ($)',
-  'INR (₹)',
-  'EUR (€)',
-  'GBP (£)',
-  'SGD ($)',
-  'AUD ($)',
-  'CAD ($)',
-  'AED (د.إ)',
-  'JPY (¥)',
-  'CHF (Fr.)',
-];
+const CURRENCIES = ['USD ($)', 'INR (₹)', 'EUR (€)', 'GBP (£)', 'SGD ($)', 'AUD ($)', 'CAD ($)', 'AED (د.إ)', 'JPY (¥)', 'CHF (Fr.)'];
+const BILLING_TYPES = ['Hourly Rate (T&M)', 'Monthly Resource Cost (Fixed)', 'Project Cost (Fixed)'] as const;
+const DUE_TIMES = ['15 days', '30 days', '45 days', '60 days', '90 days'] as const;
 
-const BILLING_TYPES = [
-  'Hourly Rate (T&M)',
-  'Monthly Resource Cost (Fixed)',
-  'Project Cost (Fixed)',
-] as const;
+type FormState = {
+  clientId: string; name: string; contactPerson: string; email: string; phone: string;
+  accountsPerson: string; accountsEmail: string; accountsPhone: string; address: string;
+  country: string; gstNumber: string; panNumber: string; msmeNumber: string;
+  billingCurrency: string; defaultBillingType: Client['defaultBillingType'];
+  dueTime: string; status: 'Active' | 'Inactive';
+};
+
+const EMPTY_FORM: FormState = {
+  clientId: '', name: '', contactPerson: '', email: '', phone: '',
+  accountsPerson: '', accountsEmail: '', accountsPhone: '', address: '',
+  country: 'India', gstNumber: '', panNumber: '', msmeNumber: '',
+  billingCurrency: 'USD ($)', defaultBillingType: 'Hourly Rate (T&M)',
+  dueTime: '30 days', status: 'Active',
+};
 
 interface ClientDrawerProps {
-  open: boolean;
-  mode: 'add' | 'edit';
-  client: Client | null;
-  onClose: () => void;
-  onSaved: () => void;
+  open: boolean; mode: 'add' | 'edit'; client: Client | null;
+  onClose: () => void; onSaved: () => void;
 }
 
 export default function ClientDrawer({ open, mode, client, onClose, onSaved }: ClientDrawerProps) {
-  const [clientId, setClientId] = useState('');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [billingCurrency, setBillingCurrency] = useState('USD ($)');
-  const [defaultBillingType, setDefaultBillingType] = useState<Client['defaultBillingType']>('Hourly Rate (T&M)');
-  const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
       setError(null);
       if (mode === 'edit' && client) {
-        setClientId(client.id);
-        setName(client.name);
-        setEmail(client.email || '');
-        setPhone(client.phone || '');
-        setAddress(client.address || '');
-        setBillingCurrency(client.billingCurrency || 'USD ($)');
-        setDefaultBillingType(client.defaultBillingType || 'Hourly Rate (T&M)');
-        setStatus(client.status);
+        setForm({
+          clientId: client.id, name: client.name, contactPerson: client.contactPerson || '',
+          email: client.email || '', phone: client.phone || '', accountsPerson: client.accountsPerson || '',
+          accountsEmail: client.accountsEmail || '', accountsPhone: client.accountsPhone || '',
+          address: client.address || '', country: client.country || 'India', gstNumber: client.gstNumber || '',
+          panNumber: client.panNumber || '', msmeNumber: client.msmeNumber || '',
+          billingCurrency: client.billingCurrency || 'USD ($)',
+          defaultBillingType: client.defaultBillingType || 'Hourly Rate (T&M)',
+          dueTime: client.dueTime || '30 days', status: client.status,
+        });
       } else {
-        setClientId('');
-        setName('');
-        setEmail('');
-        setPhone('');
-        setAddress('');
-        setBillingCurrency('USD ($)');
-        setDefaultBillingType('Hourly Rate (T&M)');
-        setStatus('Active');
+        setForm(EMPTY_FORM);
       }
-      setTimeout(() => inputRef.current?.focus(), 150);
+      setTimeout(() => nameInputRef.current?.focus(), 150);
     }
   }, [open, mode, client]);
 
+  const set = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setForm((prev) => ({ ...prev, [key]: e.target.value }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      setError('Client / Company name is required.');
-      return;
-    }
-    setSaving(true);
-    setError(null);
+    if (!form.name.trim()) { setError('Company name is required.'); return; }
+    setSaving(true); setError(null);
 
     const payload = {
-      ...(clientId.trim() && { id: clientId.trim().toUpperCase() }),
-      name: name.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      address: address.trim(),
-      billingCurrency,
-      defaultBillingType,
-      status,
+      ...(form.clientId.trim() && { id: form.clientId.trim().toUpperCase() }),
+      name: form.name.trim(),
+      contactPerson: form.contactPerson.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      accountsPerson: form.accountsPerson.trim(),
+      accountsEmail: form.accountsEmail.trim(),
+      accountsPhone: form.accountsPhone.trim(),
+      address: form.address.trim(),
+      country: form.country.trim(),
+      gstNumber: form.gstNumber.trim().toUpperCase(),
+      panNumber: form.panNumber.trim().toUpperCase(),
+      msmeNumber: form.msmeNumber.trim().toUpperCase(),
+      billingCurrency: form.billingCurrency,
+      defaultBillingType: form.defaultBillingType,
+      dueTime: form.dueTime,
+      status: form.status,
     };
 
     try {
       const url = mode === 'edit' ? `/api/clients/${client!.id}` : '/api/clients';
-      const method = mode === 'edit' ? 'PUT' : 'POST';
       const res = await fetch(url, {
-        method,
+        method: mode === 'edit' ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save client.');
-      onSaved();
-      onClose();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
+      onSaved(); onClose();
+    } catch (err: any) { setError(err.message); } finally { setSaving(false); }
   };
 
-  const inputCls = "w-full px-3 py-2 border border-studio-border rounded text-[13px] text-studio-text bg-white focus:outline-none focus:border-brand-blue";
+  const inputCls = "w-full px-3 py-1.5 border border-studio-border hover:border-studio-muted/50 rounded text-[12.5px] text-studio-text bg-white focus:outline-none focus:border-brand-orange transition-colors";
+  const labelCls = "block text-[11px] font-medium text-studio-muted mb-1";
+  const headingCls = "text-[12px] font-bold text-studio-text pb-1 border-b border-studio-border/70";
 
   return (
     <>
-      <div
-        onClick={onClose}
-        className={`fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px] transition-opacity duration-300 ${
-          open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
-      />
-      <div
-        className={`fixed top-0 right-0 z-50 h-full w-full max-w-[420px] bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${
-          open ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-studio-border shrink-0">
+      <div onClick={onClose} className={`fixed inset-0 z-40 bg-black/15 backdrop-blur-[1px] transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} />
+      <div className={`fixed top-0 right-0 z-50 h-full w-full max-w-4xl bg-white shadow-xl flex flex-col transition-transform duration-250 ease-out ${open ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="flex items-center justify-between px-7 py-3.5 border-b border-studio-border shrink-0">
           <div>
-            <h3 className="text-[15px] font-bold text-studio-text">{mode === 'edit' ? 'Edit Client' : 'Add Client'}</h3>
-            <p className="text-[11px] text-studio-muted mt-0.5">
-              {mode === 'edit' ? `Client Code: ${client?.id}` : 'Register a new studio client company'}
-            </p>
+            <h3 className="text-[16px] font-semibold text-studio-text">{mode === 'edit' ? 'Edit Client' : 'New Client'}</h3>
+            <p className="text-[11px] text-studio-muted mt-0.5">{mode === 'edit' ? `Client: ${client?.name}` : 'Fill in company, contacts & billing details'}</p>
           </div>
-          <button onClick={onClose} className="w-7 h-7 rounded flex items-center justify-center text-studio-muted hover:bg-studio-bg transition-colors">
-            <X className="w-4 h-4" />
-          </button>
+          <button type="button" onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-studio-muted hover:bg-studio-sidebar transition-colors"><X className="w-4 h-4" /></button>
         </div>
 
-        <form id="client-drawer-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-3.5">
-          {error && <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-medium">{error}</div>}
+        <form id="client-drawer-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-7 py-5 space-y-5">
+          {error && <div className="p-2.5 bg-red-50 text-red-700 rounded text-[11px] font-medium">{error}</div>}
 
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-1 space-y-1">
-              <label className="text-[11px] font-bold text-studio-muted uppercase tracking-wider">Client ID</label>
-              <input
-                type="text"
-                placeholder="CL-001"
-                disabled={mode === 'edit'}
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-                className={`${inputCls} font-mono ${mode === 'edit' ? 'bg-studio-hover opacity-70 cursor-not-allowed' : ''}`}
-              />
-            </div>
-            <div className="col-span-2 space-y-1">
-              <label className="text-[11px] font-bold text-studio-muted uppercase tracking-wider">Company Name *</label>
-              <input ref={inputRef} type="text" placeholder="e.g. Acme Corporation" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+          {/* 1. Company Info */}
+          <div className="space-y-2.5">
+            <h4 className={headingCls}>Company Info</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3">
+              <div><label className={labelCls}>Client ID</label><input type="text" placeholder="CL-001" disabled={mode === 'edit'} value={form.clientId} onChange={set('clientId')} className={`${inputCls} font-mono ${mode === 'edit' ? 'bg-studio-sidebar opacity-75' : ''}`} /></div>
+              <div><label className={labelCls}>Company Name *</label><input ref={nameInputRef} type="text" placeholder="e.g. Acme Studio" value={form.name} onChange={set('name')} className={inputCls} /></div>
+              <div><label className={labelCls}>Office Address</label><input type="text" placeholder="Street, City, PIN" value={form.address} onChange={set('address')} className={inputCls} /></div>
+              <div><label className={labelCls}>Country</label><input type="text" placeholder="India" value={form.country} onChange={set('country')} className={inputCls} /></div>
+              <div><label className={labelCls}>GST Number</label><input type="text" placeholder="22AAAAA0000A1Z5" maxLength={15} value={form.gstNumber} onChange={set('gstNumber')} className={`${inputCls} font-mono uppercase`} /></div>
+              <div><label className={labelCls}>PAN Number</label><input type="text" placeholder="AAACA0000A" maxLength={10} value={form.panNumber} onChange={set('panNumber')} className={`${inputCls} font-mono uppercase`} /></div>
+              <div><label className={labelCls}>MSME Number</label><input type="text" placeholder="UDYAM-XX-00-0000000" value={form.msmeNumber} onChange={set('msmeNumber')} className={`${inputCls} font-mono uppercase`} /></div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-[11px] font-bold text-studio-muted uppercase tracking-wider">Contact Email</label>
-              <input type="email" placeholder="billing@client.com" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} />
+          {/* 2. Point of Contact */}
+          <div className="space-y-2.5">
+            <h4 className={headingCls}>Point of Contact</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3">
+              <div><label className={labelCls}>Contact Person</label><input type="text" placeholder="Primary Contact Name" value={form.contactPerson} onChange={set('contactPerson')} className={inputCls} /></div>
+              <div><label className={labelCls}>Contact Email</label><input type="email" placeholder="contact@company.com" value={form.email} onChange={set('email')} className={inputCls} /></div>
+              <div><label className={labelCls}>Contact Phone</label><input type="tel" placeholder="+1 555-0100" value={form.phone} onChange={set('phone')} className={inputCls} /></div>
             </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-bold text-studio-muted uppercase tracking-wider">Phone Number</label>
-              <input type="tel" placeholder="+1 555-0199" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} />
+          </div>
+
+          {/* 3. Accounts Contact */}
+          <div className="space-y-2.5">
+            <h4 className={headingCls}>Accounts Contact</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3">
+              <div><label className={labelCls}>Account Person</label><input type="text" placeholder="Finance Officer" value={form.accountsPerson} onChange={set('accountsPerson')} className={inputCls} /></div>
+              <div><label className={labelCls}>Accounts Email</label><input type="email" placeholder="billing@company.com" value={form.accountsEmail} onChange={set('accountsEmail')} className={inputCls} /></div>
+              <div><label className={labelCls}>Accounts Phone</label><input type="tel" placeholder="+1 555-0200" value={form.accountsPhone} onChange={set('accountsPhone')} className={inputCls} /></div>
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[11px] font-bold text-studio-muted uppercase tracking-wider">Office Address</label>
-            <input type="text" placeholder="e.g. 100 Market St, San Francisco, CA" value={address} onChange={(e) => setAddress(e.target.value)} className={inputCls} />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[11px] font-bold text-studio-muted uppercase tracking-wider">Billing Currency</label>
-            <select value={billingCurrency} onChange={(e) => setBillingCurrency(e.target.value)} className={inputCls}>
-              {CURRENCIES.map((curr) => (<option key={curr} value={curr}>{curr}</option>))}
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <div className="flex justify-between items-center">
-              <label className="text-[11px] font-bold text-studio-muted uppercase tracking-wider">Default Billing Type</label>
-              <span className="text-[9px] text-brand-orange font-medium">Overridable per project</span>
+          {/* 4. Billing */}
+          <div className="space-y-2.5">
+            <h4 className={headingCls}>Billing</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3">
+              <div><label className={labelCls}>Billing Currency</label><select value={form.billingCurrency} onChange={set('billingCurrency')} className={inputCls}>{CURRENCIES.map((c) => (<option key={c} value={c}>{c}</option>))}</select></div>
+              <div><label className={labelCls}>Billing Type</label><select value={form.defaultBillingType} onChange={set('defaultBillingType')} className={inputCls}>{BILLING_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}</select></div>
+              <div><label className={labelCls}>Due Time</label><select value={form.dueTime} onChange={set('dueTime')} className={inputCls}>{DUE_TIMES.map((d) => (<option key={d} value={d}>{d}</option>))}</select></div>
+              <div><label className={labelCls}>Status</label><select value={form.status} onChange={set('status')} className={inputCls}><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
             </div>
-            <select value={defaultBillingType} onChange={(e) => setDefaultBillingType(e.target.value as any)} className={inputCls}>
-              {BILLING_TYPES.map((type) => (<option key={type} value={type}>{type}</option>))}
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[11px] font-bold text-studio-muted uppercase tracking-wider">Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value as any)} className={inputCls}>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
           </div>
         </form>
 
-        <div className="shrink-0 px-6 py-4 border-t border-studio-border flex items-center justify-end gap-2 bg-studio-sidebar">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-[12px] font-semibold text-studio-muted border border-studio-border rounded hover:bg-studio-bg transition-colors">
-            Cancel
-          </button>
-          <button type="submit" form="client-drawer-form" disabled={saving} className="px-4 py-2 text-[12px] font-semibold text-white bg-brand-orange rounded hover:bg-opacity-90 transition-colors disabled:opacity-50">
-            {saving ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Create Client'}
-          </button>
+        <div className="shrink-0 px-7 py-3.5 border-t border-studio-border flex items-center justify-end gap-3 bg-white">
+          <button type="button" onClick={onClose} className="px-4 py-1.5 text-[12px] font-medium text-studio-muted hover:text-studio-text transition-colors">Cancel</button>
+          <button type="submit" form="client-drawer-form" disabled={saving} className="px-4 py-1.5 text-[12px] font-semibold text-white bg-brand-orange rounded hover:bg-opacity-95 transition-colors disabled:opacity-50">{saving ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Create Client'}</button>
         </div>
       </div>
     </>
