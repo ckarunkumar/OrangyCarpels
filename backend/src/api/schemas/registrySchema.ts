@@ -1,0 +1,144 @@
+export const getRegistrySchema = {
+  querystring: {
+    type: 'object',
+    properties: {},
+  },
+};
+
+export const createEmployeeSchema = {
+  body: {
+    type: 'object',
+    required: ['fullName', 'email', 'phone'],
+    properties: {
+      employeeId: { type: 'string' },
+      fullName: { type: 'string', minLength: 1 },
+      dob: { type: 'string' },
+      designation: { type: 'string' },
+      department: { type: 'string' },
+      email: { type: 'string', format: 'email' },
+      personalEmail: { type: 'string' },
+      phone: { type: 'string', minLength: 5 },
+      secondaryPhone: { type: 'string' },
+      permanentAddress: { type: 'string' },
+      guardianName: { type: 'string' },
+      motherName: { type: 'string' },
+      bloodGroup: { type: 'string' },
+      linkedInUrl: { type: 'string' },
+      aadhaarNumber: { type: 'string' },
+      panNumber: { type: 'string' },
+      costRate: { type: 'string' },
+      capacity: { type: 'string' },
+      status: { type: 'string', enum: ['Active', 'Inactive'] },
+      role: { type: 'string', enum: ['Super Admin', 'Project Manager', 'Employee'] },
+    },
+  },
+};
+
+export const updateEmployeeSchema = {
+  params: {
+    type: 'object',
+    required: ['id'],
+    properties: {
+      id: { type: 'integer' },
+    },
+  },
+  body: {
+    type: 'object',
+    properties: {
+      employeeId: { type: 'string' },
+      fullName: { type: 'string', minLength: 1 },
+      dob: { type: 'string' },
+      designation: { type: 'string' },
+      department: { type: 'string' },
+      email: { type: 'string', format: 'email' },
+      personalEmail: { type: 'string' },
+      phone: { type: 'string' },
+      secondaryPhone: { type: 'string' },
+      permanentAddress: { type: 'string' },
+      guardianName: { type: 'string' },
+      motherName: { type: 'string' },
+      bloodGroup: { type: 'string' },
+      linkedInUrl: { type: 'string' },
+      aadhaarNumber: { type: 'string' },
+      panNumber: { type: 'string' },
+      costRate: { type: 'string' },
+      capacity: { type: 'string' },
+      status: { type: 'string', enum: ['Active', 'Inactive'] },
+      role: { type: 'string', enum: ['Super Admin', 'Project Manager', 'Employee'] },
+    },
+  },
+};
+
+export const createClientSchema = {
+  body: {
+    type: 'object',
+    required: ['name', 'billingCurrency'],
+    properties: {
+      id: { type: 'string' },
+      name: { type: 'string', minLength: 1 },
+      email: { type: 'string' },
+      phone: { type: 'string' },
+      address: { type: 'string' },
+      billingCurrency: { type: 'string', minLength: 1 },
+      defaultBillingType: { type: 'string', enum: ['Hourly Rate (T&M)', 'Monthly Resource Cost (Fixed)', 'Project Cost (Fixed)'] },
+      status: { type: 'string', enum: ['Active', 'Inactive'] },
+    },
+  },
+};
+
+export const updateClientSchema = {
+  params: {
+    type: 'object',
+    required: ['id'],
+    properties: {
+      id: { type: 'string' },
+    },
+  },
+  body: {
+    type: 'object',
+    properties: {
+      name: { type: 'string', minLength: 1 },
+      email: { type: 'string' },
+      phone: { type: 'string' },
+      address: { type: 'string' },
+      billingCurrency: { type: 'string', minLength: 1 },
+      defaultBillingType: { type: 'string', enum: ['Hourly Rate (T&M)', 'Monthly Resource Cost (Fixed)', 'Project Cost (Fixed)'] },
+      status: { type: 'string', enum: ['Active', 'Inactive'] },
+    },
+  },
+};
+
+export const createProjectSchema = {
+  body: {
+    type: 'object',
+    required: ['clientId', 'name', 'billingType', 'rate', 'budgetHours'],
+    properties: {
+      clientId: { type: 'string', minLength: 1 },
+      name: { type: 'string', minLength: 1 },
+      billingType: { type: 'string', enum: ['Hourly Rate (T&M)', 'Monthly Resource Cost (Fixed)', 'Project Cost (Fixed)'] },
+      rate: { type: 'string', minLength: 1 },
+      budgetHours: { type: 'number', minimum: 1 },
+    },
+  },
+};
+
+export const updateProjectSchema = {
+  params: {
+    type: 'object',
+    required: ['id'],
+    properties: {
+      id: { type: 'string' },
+    },
+  },
+  body: {
+    type: 'object',
+    properties: {
+      name: { type: 'string', minLength: 1 },
+      billingType: { type: 'string', enum: ['Hourly Rate (T&M)', 'Monthly Resource Cost (Fixed)', 'Project Cost (Fixed)'] },
+      rate: { type: 'string' },
+      budgetHours: { type: 'number', minimum: 1 },
+      status: { type: 'string', enum: ['Active', 'Inactive'] },
+      clientId: { type: 'string' },
+    },
+  },
+};

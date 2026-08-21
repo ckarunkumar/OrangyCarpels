@@ -1,0 +1,102 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Employee {
+  id               Int          @id @default(autoincrement())
+  employeeId       String       @default("")
+  fullName         String
+  dob              String?      @default("")
+  designation      String       @default("Team Member")
+  department       String       @default("General")
+  email            String       @unique // Office Email Address
+  personalEmail    String?      @default("")
+  phone            String       // Mobile Number
+  secondaryPhone   String?      @default("")
+  permanentAddress String?      @default("")
+  guardianName     String?      @default("") // Father's or Guardian name
+  motherName       String?      @default("") // Mother's name
+  bloodGroup       String?      @default("")
+  linkedInUrl      String?      @default("")
+  aadhaarNumber    String?      @default("")
+  panNumber        String?      @default("")
+  costRate         String       @default("₹0/hr")
+  capacity         String       @default("40 hrs/week")
+  status           String       @default("Active") // Active, Inactive
+  role             String       @default("Employee") // Super Admin, Project Manager, Employee
+  location         String       @default("Delhi, India")
+  avatar           String?
+  education        Education[]
+  experience       Experience[]
+}
+
+model Education {
+  id         Int      @id @default(autoincrement())
+  degree     String
+  school     String
+  year       String
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model Experience {
+  id         Int      @id @default(autoincrement())
+  company    String
+  role       String
+  period     String
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model Client {
+  id                 String    @id
+  name               String
+  email              String?   @default("")
+  phone              String?   @default("")
+  address            String?   @default("")
+  billingCurrency    String    @default("USD ($)")
+  defaultBillingType String    @default("Hourly Rate (T&M)")
+  status             String    @default("Active") // Active, Inactive
+  projects           Project[]
+}
+
+model Project {
+  id          String @id
+  name        String
+  billingType String // Hourly Rate (T&M), Monthly Resource Cost (Fixed), Project Cost (Fixed)
+  rate        String
+  budgetHours Int
+  loggedHours Int    @default(0)
+  status      String // Active, Inactive
+  clientId    String
+  client      Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model Timesheet {
+  id        Int            @id @default(autoincrement())
+  weekStart String         @unique
+  status    String         // Draft, Submitted, Approved
+  rows      TimesheetRow[]
+}
+
+model TimesheetRow {
+  id          Int       @id @default(autoincrement())
+  client      String
+  project     String
+  task        String
+  billable    Boolean
+  mon         Float     @default(0)
+  tue         Float     @default(0)
+  wed         Float     @default(0)
+  thu         Float     @default(0)
+  fri         Float     @default(0)
+  sat         Float     @default(0)
+  sun         Float     @default(0)
+  timesheetId Int
+  timesheet   Timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
+}
