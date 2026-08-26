@@ -1,9 +1,9 @@
 # Gemini.md (AI Memory File)
 
-Template: Orangy_Carpels
+Template: Orangyy_Carpels
 
 ## Overview
-Orangy Carpels is a resource, project, timesheet, HR, and billing management application that helps design studios and project-based teams manage employees, clients, projects, resource allocation, attendance, leave, timesheets, and billing in one centralized platform by connecting operational data, approval workflows, time tracking, billing rules, and reporting.
+Orangyy Carpels is a resource, project, timesheet, HR, and billing management application that helps design studios and project-based teams manage employees, clients, projects, resource allocation, attendance, leave, timesheets, and billing in one centralized platform by connecting operational data, approval workflows, time tracking, billing rules, and reporting.
 
 ## Tech Stack
 * **Frontend**: React + Vite

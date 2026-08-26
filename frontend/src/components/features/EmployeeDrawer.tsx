@@ -2,27 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Camera, Trash2 } from 'lucide-react';
 
 export interface Employee {
-  id: number;
-  employeeId?: string;
-  fullName: string;
-  dob?: string;
-  designation: string;
-  department: string;
-  email: string;
-  personalEmail?: string;
-  phone: string;
-  secondaryPhone?: string;
-  permanentAddress?: string;
-  guardianName?: string;
-  motherName?: string;
-  bloodGroup?: string;
-  linkedInUrl?: string;
-  aadhaarNumber?: string;
-  panNumber?: string;
-  status: 'Active' | 'Inactive';
-  role: 'Super Admin' | 'Project Manager' | 'Employee';
-  location?: string;
-  avatar?: string | null;
+  id: number; employeeId?: string; fullName: string; dob?: string; designation: string; department: string;
+  email: string; personalEmail?: string; phone: string; secondaryPhone?: string; permanentAddress?: string;
+  guardianName?: string; motherName?: string; bloodGroup?: string; linkedInUrl?: string; aadhaarNumber?: string;
+  panNumber?: string; status: 'Active' | 'Inactive'; role: 'Super Admin' | 'Project Manager' | 'Employee';
+  location?: string; avatar?: string | null;
   education?: Array<{ degree: string; school: string; year: string }>;
   experience?: Array<{ company: string; role: string; period: string }>;
 }
@@ -92,10 +76,10 @@ export default function EmployeeDrawer({ open, mode, employee, onClose, onSaved 
 
   const validate = (): boolean => {
     const errs: Partial<Record<keyof FormState, string>> = {};
-    if (!form.employeeId.trim()) errs.employeeId = 'Employee ID is required';
+    if (!form.employeeId.trim()) errs.employeeId = 'Emp ID is required';
     if (!form.fullName.trim()) errs.fullName = 'Full name is required';
     if (!form.dob.trim()) errs.dob = 'Date of birth is required';
-    if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errs.email = 'Valid office email is required';
+    if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errs.email = 'Valid email is required';
     if (!form.phone.trim()) errs.phone = 'Mobile number is required';
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -110,7 +94,7 @@ export default function EmployeeDrawer({ open, mode, employee, onClose, onSaved 
       const res = await fetch(url, {
         method: mode === 'edit' ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, panNumber: form.panNumber.trim().toUpperCase() }),
+        body: JSON.stringify({ ...form, employeeId: form.employeeId.trim().toUpperCase(), panNumber: form.panNumber.trim().toUpperCase() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save employee profile.');
@@ -118,10 +102,7 @@ export default function EmployeeDrawer({ open, mode, employee, onClose, onSaved 
     } catch (err: any) { setServerError(err.message); } finally { setSaving(false); }
   };
 
-  const inputCls = (hasErr?: boolean) =>
-    `w-full px-3 py-1.5 border rounded text-[12px] text-studio-text bg-white focus:outline-none ${
-      hasErr ? 'border-red-400 focus:border-red-500' : 'border-studio-border hover:border-studio-muted/50 focus:border-brand-orange'
-    }`;
+  const inputCls = (hasErr?: boolean) => `w-full px-3 py-1.5 border rounded text-[12px] text-studio-text bg-white focus:outline-none ${hasErr ? 'border-red-400 focus:border-red-500' : 'border-studio-border hover:border-studio-muted/50 focus:border-brand-orange'}`;
   const labelCls = "block text-[11px] font-medium text-studio-muted mb-1";
 
   return (
@@ -130,16 +111,16 @@ export default function EmployeeDrawer({ open, mode, employee, onClose, onSaved 
       <div className={`fixed top-0 right-0 z-50 h-full w-full max-w-4xl bg-white shadow-xl flex flex-col transition-transform duration-250 ease-out ${open ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="flex items-center justify-between px-7 py-3.5 border-b border-studio-border shrink-0">
           <div>
-            <h3 className="text-[16px] font-semibold text-studio-text">{mode === 'edit' ? 'Edit Employee' : 'New Employee'}</h3>
-            <p className="text-[11px] text-studio-muted mt-0.5">{mode === 'edit' ? `Editing: ${employee?.fullName}` : 'Fill in profile details & photo'}</p>
+            <h3 className="text-[16px] font-semibold text-studio-text">{mode === 'edit' ? 'Edit Team Member' : 'New Team Member'}</h3>
+            <p className="text-[11px] text-studio-muted mt-0.5">{mode === 'edit' ? `Editing: ${employee?.fullName}` : 'Fill in profile details, unique Emp ID & photo'}</p>
           </div>
           <button type="button" onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-studio-muted hover:bg-studio-sidebar transition-colors"><X className="w-4 h-4" /></button>
         </div>
 
         <form id="employee-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-7 py-5 space-y-5">
-          {serverError && <div className="p-2 bg-red-50 text-red-700 rounded text-[11px] font-medium">{serverError}</div>}
+          {serverError && <div className="p-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-medium">{serverError}</div>}
 
-          {/* Profile Photo Uploader (50% compact size) */}
+          {/* Profile Photo Uploader */}
           <div className="flex items-center gap-3 pb-3 border-b border-studio-border/60">
             <div className="relative group">
               <div className="w-8 h-8 rounded-full bg-studio-sidebar border border-studio-border flex items-center justify-center overflow-hidden text-[12px] font-bold text-studio-muted shadow-sm">
@@ -164,7 +145,7 @@ export default function EmployeeDrawer({ open, mode, employee, onClose, onSaved 
           <div className="space-y-2.5">
             <h4 className="text-[12px] font-bold text-studio-text pb-1 border-b border-studio-border/70">Profile</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3">
-              <div><label className={labelCls}>Employee ID *</label><input type="text" placeholder="EMP-001" value={form.employeeId} onChange={set('employeeId')} className={`${inputCls(!!errors.employeeId)} font-mono`} /></div>
+              <div><label className="block text-[11px] font-bold text-brand-orange mb-1">Emp ID *</label><input type="text" placeholder="AODE0001" value={form.employeeId} onChange={set('employeeId')} className={`${inputCls(!!errors.employeeId)} font-mono uppercase`} /></div>
               <div><label className={labelCls}>Full Name *</label><input type="text" placeholder="e.g. Maya Lin" value={form.fullName} onChange={set('fullName')} className={inputCls(!!errors.fullName)} /></div>
               <div><label className={labelCls}>Date of Birth *</label><input type="date" value={form.dob} onChange={set('dob')} className={inputCls(!!errors.dob)} /></div>
               <div><label className={labelCls}>Office Email *</label><input type="email" placeholder="name@orangy.studio" value={form.email} onChange={set('email')} className={inputCls(!!errors.email)} /></div>
@@ -202,7 +183,7 @@ export default function EmployeeDrawer({ open, mode, employee, onClose, onSaved 
 
         <div className="shrink-0 px-7 py-3 border-t border-studio-border flex items-center justify-end gap-3 bg-white">
           <button type="button" onClick={onClose} className="px-4 py-1.5 text-[12px] font-medium text-studio-muted hover:text-studio-text transition-colors">Cancel</button>
-          <button type="submit" form="employee-form" disabled={saving} className="px-4 py-1.5 text-[12px] font-semibold text-white bg-brand-orange rounded hover:bg-opacity-95 transition-colors disabled:opacity-50">{saving ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Create Employee'}</button>
+          <button type="submit" form="employee-form" disabled={saving} className="px-4 py-1.5 text-[12px] font-semibold text-white bg-brand-orange rounded hover:bg-opacity-95 transition-colors disabled:opacity-50">{saving ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Create Team Member'}</button>
         </div>
       </div>
     </>

@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { NotificationService } from './notificationService';
 
 export interface EmployeeProfile {
   id: number;
@@ -31,11 +32,16 @@ export interface EmployeeProfile {
 export interface ProjectDetail {
   id: string;
   name: string;
-  billingType: 'Hourly Rate (T&M)' | 'Monthly Resource Cost (Fixed)' | 'Project Cost (Fixed)';
+  billingType: 'T&M' | 'Fixed RC' | 'Fixed PC' | 'Hourly Rate (T&M)' | 'Monthly Resource Cost (Fixed)' | 'Monthly Res Cost (Fixed)' | 'Project Cost (Fixed)';
   rate: string; // Gated financial data
+  startDate?: string;
+  endDate?: string;
   budgetHours: number;
   loggedHours: number;
   status: 'Active' | 'Inactive';
+  managerId?: string;
+  managerName?: string;
+  assignedEmployees?: string[];
 }
 
 export interface ProjectWithClient extends ProjectDetail {
@@ -47,6 +53,8 @@ export interface ProjectWithClient extends ProjectDetail {
 export interface ClientProfile {
   id: string;
   name: string;
+  legalName?: string;
+  displayName?: string;
   contactPerson?: string;
   email?: string;
   phone?: string;
@@ -55,11 +63,12 @@ export interface ClientProfile {
   accountsPhone?: string;
   address?: string;
   country?: string;
+  cinNumber?: string;
   gstNumber?: string;
   panNumber?: string;
   msmeNumber?: string;
   billingCurrency: string;
-  defaultBillingType: 'Hourly Rate (T&M)' | 'Monthly Resource Cost (Fixed)' | 'Project Cost (Fixed)';
+  defaultBillingType: 'T&M' | 'Fixed RC' | 'Fixed PC' | 'Hourly Rate (T&M)' | 'Monthly Resource Cost (Fixed)' | 'Project Cost (Fixed)';
   dueTime?: string;
   status: 'Active' | 'Inactive';
   projects: ProjectDetail[];
@@ -80,7 +89,7 @@ export class RegistryService {
 
     return employees.map((emp) => ({
       id: emp.id,
-      employeeId: emp.employeeId || `EMP-00${emp.id}`,
+      employeeId: emp.employeeId || `AODE${String(emp.id).padStart(4, '0')}`,
       fullName: emp.fullName,
       dob: emp.dob || '',
       designation: emp.designation,
@@ -127,14 +136,37 @@ export class RegistryService {
     }
 
     const count = await prisma.employee.count();
+    let targetEmpId = data.employeeId?.trim();
+    if (!targetEmpId) {
+      let nextNum = count + 1;
+      targetEmpId = `AODE${String(nextNum).padStart(4, '0')}`;
+      while (await prisma.employee.findUnique({ where: { employeeId: targetEmpId } })) {
+        nextNum++;
+        targetEmpId = `AODE${String(nextNum).padStart(4, '0')}`;
+      }
+    }
+    const cleanEmail = data.email.trim().toLowerCase();
+
+    // Check duplicate Emp ID
+    const existingEmpId = await prisma.employee.findUnique({ where: { employeeId: targetEmpId } });
+    if (existingEmpId) {
+      throw new Error(`Emp ID "${targetEmpId}" already exists. Please enter a unique Emp ID.`);
+    }
+
+    // Check duplicate Email
+    const existingEmail = await prisma.employee.findUnique({ where: { email: cleanEmail } });
+    if (existingEmail) {
+      throw new Error(`Email address "${cleanEmail}" is already registered to another employee.`);
+    }
+
     const emp = await prisma.employee.create({
       data: {
-        employeeId: data.employeeId || `EMP-00${count + 1}`,
+        employeeId: targetEmpId,
         fullName: data.fullName.trim(),
         dob: data.dob?.trim() || '',
         designation: data.designation?.trim() || 'Team Member',
         department: data.department?.trim() || 'General',
-        email: data.email.trim(),
+        email: cleanEmail,
         personalEmail: data.personalEmail?.trim() || '',
         phone: data.phone.trim(),
         secondaryPhone: data.secondaryPhone?.trim() || '',
@@ -198,15 +230,31 @@ export class RegistryService {
     const existing = await prisma.employee.findUnique({ where: { id }, include: { education: true, experience: true } });
     if (!existing) throw new Error('Employee not found.');
 
+    if (data.employeeId) {
+      const cleanEmpId = data.employeeId.trim();
+      const duplicateEmpId = await prisma.employee.findFirst({ where: { employeeId: cleanEmpId, NOT: { id } } });
+      if (duplicateEmpId) {
+        throw new Error(`Emp ID "${cleanEmpId}" already exists. Please enter a unique Emp ID.`);
+      }
+    }
+
+    if (data.email) {
+      const cleanEmail = data.email.trim().toLowerCase();
+      const duplicateEmail = await prisma.employee.findFirst({ where: { email: cleanEmail, NOT: { id } } });
+      if (duplicateEmail) {
+        throw new Error(`Email address "${cleanEmail}" is already registered to another employee.`);
+      }
+    }
+
     const emp = await prisma.employee.update({
       where: { id },
       data: {
-        ...(data.employeeId !== undefined && { employeeId: data.employeeId }),
+        ...(data.employeeId !== undefined && { employeeId: data.employeeId.trim() }),
         ...(data.fullName !== undefined && { fullName: data.fullName.trim() }),
         ...(data.dob !== undefined && { dob: data.dob.trim() }),
         ...(data.designation !== undefined && { designation: data.designation.trim() }),
         ...(data.department !== undefined && { department: data.department.trim() }),
-        ...(data.email !== undefined && { email: data.email.trim() }),
+        ...(data.email !== undefined && { email: data.email.trim().toLowerCase() }),
         ...(data.personalEmail !== undefined && { personalEmail: data.personalEmail.trim() }),
         ...(data.phone !== undefined && { phone: data.phone.trim() }),
         ...(data.secondaryPhone !== undefined && { secondaryPhone: data.secondaryPhone.trim() }),
@@ -270,7 +318,9 @@ export class RegistryService {
 
     return clients.map((client) => ({
       id: client.id,
-      name: client.name,
+      name: client.displayName || client.name,
+      legalName: client.legalName || client.name,
+      displayName: client.displayName || client.name,
       contactPerson: client.contactPerson || '',
       email: client.email || '',
       phone: client.phone || '',
@@ -279,11 +329,12 @@ export class RegistryService {
       accountsPhone: client.accountsPhone || '',
       address: client.address || '',
       country: client.country || 'India',
+      cinNumber: client.cinNumber || '',
       gstNumber: client.gstNumber || '',
       panNumber: client.panNumber || '',
       msmeNumber: client.msmeNumber || '',
       billingCurrency: client.billingCurrency,
-      defaultBillingType: (client.defaultBillingType as ClientProfile['defaultBillingType']) || 'Hourly Rate (T&M)',
+      defaultBillingType: (client.defaultBillingType as ClientProfile['defaultBillingType']) || 'T&M',
       dueTime: client.dueTime || '30 days',
       status: client.status as 'Active' | 'Inactive',
       projects: client.projects.map((proj) => ({
@@ -306,6 +357,8 @@ export class RegistryService {
     data: {
       id?: string;
       name: string;
+      legalName?: string;
+      displayName?: string;
       contactPerson?: string;
       email?: string;
       phone?: string;
@@ -314,6 +367,7 @@ export class RegistryService {
       accountsPhone?: string;
       address?: string;
       country?: string;
+      cinNumber?: string;
       gstNumber?: string;
       panNumber?: string;
       msmeNumber?: string;
@@ -335,18 +389,24 @@ export class RegistryService {
       }
     } else {
       const count = await prisma.client.count();
-      targetId = `CL-00${count + 1}`;
-      let attempt = 1;
+      let nextNum = count + 1;
+      targetId = `AODC${String(nextNum).padStart(4, '0')}`;
       while (await prisma.client.findUnique({ where: { id: targetId } })) {
-        attempt++;
-        targetId = `CL-00${count + attempt}`;
+        nextNum++;
+        targetId = `AODC${String(nextNum).padStart(4, '0')}`;
       }
     }
+
+    const displayName = data.displayName?.trim() || data.name?.trim() || '';
+    const legalName = data.legalName?.trim() || data.name?.trim() || '';
+    const name = displayName || legalName;
 
     const client = await prisma.client.create({
       data: {
         id: targetId,
-        name: data.name.trim(),
+        name,
+        legalName,
+        displayName,
         contactPerson: data.contactPerson?.trim() || '',
         email: data.email?.trim() || '',
         phone: data.phone?.trim() || '',
@@ -355,11 +415,12 @@ export class RegistryService {
         accountsPhone: data.accountsPhone?.trim() || '',
         address: data.address?.trim() || '',
         country: data.country?.trim() || 'India',
+        cinNumber: data.cinNumber?.trim().toUpperCase() || '',
         gstNumber: data.gstNumber?.trim().toUpperCase() || '',
         panNumber: data.panNumber?.trim().toUpperCase() || '',
         msmeNumber: data.msmeNumber?.trim().toUpperCase() || '',
         billingCurrency: data.billingCurrency || 'USD ($)',
-        defaultBillingType: data.defaultBillingType || 'Hourly Rate (T&M)',
+        defaultBillingType: data.defaultBillingType || 'T&M',
         dueTime: data.dueTime || '30 days',
         status: data.status || 'Active',
       },
@@ -367,7 +428,9 @@ export class RegistryService {
 
     return {
       id: client.id,
-      name: client.name,
+      name: client.displayName || client.name,
+      legalName: client.legalName || client.name,
+      displayName: client.displayName || client.name,
       contactPerson: client.contactPerson || '',
       email: client.email || '',
       phone: client.phone || '',
@@ -376,11 +439,12 @@ export class RegistryService {
       accountsPhone: client.accountsPhone || '',
       address: client.address || '',
       country: client.country || 'India',
+      cinNumber: client.cinNumber || '',
       gstNumber: client.gstNumber || '',
       panNumber: client.panNumber || '',
       msmeNumber: client.msmeNumber || '',
       billingCurrency: client.billingCurrency,
-      defaultBillingType: (client.defaultBillingType as ClientProfile['defaultBillingType']) || 'Hourly Rate (T&M)',
+      defaultBillingType: (client.defaultBillingType as ClientProfile['defaultBillingType']) || 'T&M',
       dueTime: client.dueTime || '30 days',
       status: client.status as 'Active' | 'Inactive',
       projects: [],
@@ -395,6 +459,8 @@ export class RegistryService {
     id: string,
     data: {
       name?: string;
+      legalName?: string;
+      displayName?: string;
       contactPerson?: string;
       email?: string;
       phone?: string;
@@ -403,6 +469,7 @@ export class RegistryService {
       accountsPhone?: string;
       address?: string;
       country?: string;
+      cinNumber?: string;
       gstNumber?: string;
       panNumber?: string;
       msmeNumber?: string;
@@ -416,10 +483,16 @@ export class RegistryService {
       throw new Error('Access Denied: Only Super Admins can edit client entities.');
     }
 
+    const displayName = data.displayName !== undefined ? data.displayName.trim() : undefined;
+    const legalName = data.legalName !== undefined ? data.legalName.trim() : undefined;
+    const name = displayName !== undefined ? displayName : (data.name !== undefined ? data.name.trim() : undefined);
+
     const updated = await prisma.client.update({
       where: { id },
       data: {
-        ...(data.name !== undefined && { name: data.name.trim() }),
+        ...(name !== undefined && { name }),
+        ...(legalName !== undefined && { legalName }),
+        ...(displayName !== undefined && { displayName }),
         ...(data.contactPerson !== undefined && { contactPerson: data.contactPerson.trim() }),
         ...(data.email !== undefined && { email: data.email.trim() }),
         ...(data.phone !== undefined && { phone: data.phone.trim() }),
@@ -428,6 +501,7 @@ export class RegistryService {
         ...(data.accountsPhone !== undefined && { accountsPhone: data.accountsPhone.trim() }),
         ...(data.address !== undefined && { address: data.address.trim() }),
         ...(data.country !== undefined && { country: data.country.trim() }),
+        ...(data.cinNumber !== undefined && { cinNumber: data.cinNumber.trim().toUpperCase() }),
         ...(data.gstNumber !== undefined && { gstNumber: data.gstNumber.trim().toUpperCase() }),
         ...(data.panNumber !== undefined && { panNumber: data.panNumber.trim().toUpperCase() }),
         ...(data.msmeNumber !== undefined && { msmeNumber: data.msmeNumber.trim().toUpperCase() }),
@@ -441,7 +515,9 @@ export class RegistryService {
 
     return {
       id: updated.id,
-      name: updated.name,
+      name: updated.displayName || updated.name,
+      legalName: updated.legalName || updated.name,
+      displayName: updated.displayName || updated.name,
       contactPerson: updated.contactPerson || '',
       email: updated.email || '',
       phone: updated.phone || '',
@@ -450,11 +526,12 @@ export class RegistryService {
       accountsPhone: updated.accountsPhone || '',
       address: updated.address || '',
       country: updated.country || 'India',
+      cinNumber: updated.cinNumber || '',
       gstNumber: updated.gstNumber || '',
       panNumber: updated.panNumber || '',
       msmeNumber: updated.msmeNumber || '',
       billingCurrency: updated.billingCurrency,
-      defaultBillingType: (updated.defaultBillingType as ClientProfile['defaultBillingType']) || 'Hourly Rate (T&M)',
+      defaultBillingType: (updated.defaultBillingType as ClientProfile['defaultBillingType']) || 'T&M',
       dueTime: updated.dueTime || '30 days',
       status: updated.status as 'Active' | 'Inactive',
       projects: updated.projects.map((p) => ({
@@ -486,12 +563,17 @@ export class RegistryService {
       name: proj.name,
       billingType: proj.billingType as ProjectDetail['billingType'],
       rate: role === 'Super Admin' ? proj.rate : 'RESTRICTED',
+      startDate: proj.startDate || '',
+      endDate: proj.endDate || '',
       budgetHours: proj.budgetHours,
       loggedHours: proj.loggedHours,
       status: proj.status as 'Active' | 'Inactive',
       clientId: proj.clientId,
-      clientName: proj.client.name,
+      clientName: proj.client.displayName || proj.client.name,
       clientCurrency: proj.client.billingCurrency,
+      managerId: proj.managerId || '',
+      managerName: proj.managerName || '',
+      assignedEmployees: proj.assignedEmployees ? proj.assignedEmployees.split(',').filter(Boolean) : [],
     }));
   }
 
@@ -504,7 +586,13 @@ export class RegistryService {
     name: string,
     billingType: ProjectDetail['billingType'],
     rate: string,
-    budgetHours: number
+    budgetHours: number,
+    startDate?: string,
+    endDate?: string,
+    id?: string,
+    managerId?: string,
+    managerName?: string,
+    assignedEmployees?: string[] | string
   ): Promise<ProjectDetail> {
     if (role === 'Employee') {
       throw new Error('Access Denied: Employees cannot create projects.');
@@ -513,17 +601,46 @@ export class RegistryService {
     const client = await prisma.client.findUnique({ where: { id: clientId } });
     if (!client) throw new Error('Client not found.');
 
-    const projId = `PRJ-${Math.floor(100 + Math.random() * 900)}`;
+    let projId = id?.trim();
+    if (!projId) {
+      const count = await prisma.project.count();
+      let nextNum = count + 1;
+      projId = `AODP${String(nextNum).padStart(4, '0')}`;
+      while (await prisma.project.findUnique({ where: { id: projId } })) {
+        nextNum++;
+        projId = `AODP${String(nextNum).padStart(4, '0')}`;
+      }
+    } else {
+      const existing = await prisma.project.findUnique({ where: { id: projId } });
+      if (existing) {
+        throw new Error(`Project ID "${projId}" already exists. Please enter a unique Project ID.`);
+      }
+    }
+
+    const empStr = Array.isArray(assignedEmployees) ? assignedEmployees.join(',') : (assignedEmployees || '');
+
     const proj = await prisma.project.create({
       data: {
         id: projId,
-        name,
+        name: name.trim(),
         billingType,
         rate,
-        budgetHours,
+        startDate: startDate || '',
+        endDate: endDate || '',
+        budgetHours: budgetHours || 0,
         status: 'Active',
         clientId,
+        managerId: managerId || '',
+        managerName: managerName || '',
+        assignedEmployees: empStr,
       },
+    });
+
+    await NotificationService.createNotification({
+      role: 'Employee',
+      title: 'New Project Assigned',
+      message: `You have been assigned to project "${proj.name}" (${proj.id}).`,
+      type: 'project_assign',
     });
 
     return {
@@ -531,9 +648,14 @@ export class RegistryService {
       name: proj.name,
       billingType: proj.billingType as ProjectDetail['billingType'],
       rate: proj.rate,
+      startDate: proj.startDate || '',
+      endDate: proj.endDate || '',
       budgetHours: proj.budgetHours,
       loggedHours: proj.loggedHours,
       status: proj.status as 'Active' | 'Inactive',
+      managerId: proj.managerId || '',
+      managerName: proj.managerName || '',
+      assignedEmployees: proj.assignedEmployees ? proj.assignedEmployees.split(',').filter(Boolean) : [],
     };
   }
 
@@ -543,11 +665,27 @@ export class RegistryService {
   static async updateProject(
     role: string,
     id: string,
-    data: { name?: string; billingType?: ProjectDetail['billingType']; rate?: string; budgetHours?: number; status?: 'Active' | 'Inactive'; clientId?: string }
+    data: {
+      name?: string;
+      billingType?: ProjectDetail['billingType'];
+      rate?: string;
+      startDate?: string;
+      endDate?: string;
+      budgetHours?: number;
+      status?: 'Active' | 'Inactive';
+      clientId?: string;
+      managerId?: string;
+      managerName?: string;
+      assignedEmployees?: string[] | string;
+    }
   ): Promise<ProjectDetail> {
     if (role === 'Employee') {
       throw new Error('Access Denied: Employees cannot edit projects.');
     }
+
+    const empStr = data.assignedEmployees !== undefined
+      ? (Array.isArray(data.assignedEmployees) ? data.assignedEmployees.join(',') : data.assignedEmployees)
+      : undefined;
 
     const updated = await prisma.project.update({
       where: { id },
@@ -555,9 +693,14 @@ export class RegistryService {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.billingType !== undefined && { billingType: data.billingType }),
         ...(data.rate !== undefined && { rate: data.rate }),
+        ...(data.startDate !== undefined && { startDate: data.startDate }),
+        ...(data.endDate !== undefined && { endDate: data.endDate }),
         ...(data.budgetHours !== undefined && { budgetHours: data.budgetHours }),
         ...(data.status !== undefined && { status: data.status }),
         ...(data.clientId !== undefined && { clientId: data.clientId }),
+        ...(data.managerId !== undefined && { managerId: data.managerId }),
+        ...(data.managerName !== undefined && { managerName: data.managerName }),
+        ...(empStr !== undefined && { assignedEmployees: empStr }),
       },
     });
 
@@ -566,9 +709,14 @@ export class RegistryService {
       name: updated.name,
       billingType: updated.billingType as ProjectDetail['billingType'],
       rate: role === 'Super Admin' ? updated.rate : 'RESTRICTED',
+      startDate: updated.startDate || '',
+      endDate: updated.endDate || '',
       budgetHours: updated.budgetHours,
       loggedHours: updated.loggedHours,
       status: updated.status as 'Active' | 'Inactive',
+      managerId: updated.managerId || '',
+      managerName: updated.managerName || '',
+      assignedEmployees: updated.assignedEmployees ? updated.assignedEmployees.split(',').filter(Boolean) : [],
     };
   }
 }

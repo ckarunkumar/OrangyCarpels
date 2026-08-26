@@ -7,55 +7,95 @@ import {
 } from '../schemas/timesheetSchema';
 
 const timesheetRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
-  // GET weekly timesheet
-  fastify.get('/timesheets', { schema: getTimesheetSchema }, async (request, reply) => {
+  // GET projects summary for employee timesheet view
+  fastify.get('/timesheets/projects-summary', async (request) => {
+    const { month } = request.query as { month?: string };
+    const employeeId = request.user?.userId ? String(request.user.userId) : undefined;
+    return TimesheetService.getEmployeeProjectsSummary(month || '2026-08', employeeId);
+  });
+
+  // GET full month daily entries for a specific project
+  fastify.get('/timesheets/daily-entries', async (request) => {
+    const { projectId, month, weekStart } = request.query as { projectId: string; month?: string; weekStart?: string };
+    const monthStr = month || (weekStart ? weekStart.slice(0, 7) : '2026-08');
+    const employeeId = request.user?.userId ? String(request.user.userId) : undefined;
+    return TimesheetService.getProjectDailyEntries(projectId, monthStr, employeeId);
+  });
+
+  // POST save daily entries (draft auto-save)
+  fastify.post('/timesheets/daily-entries/save', async (request, reply) => {
+    const { projectId, month, weekStart, entries } = request.body as {
+      projectId: string; month?: string; weekStart?: string; entries: any[];
+    };
+    const monthStr = month || (weekStart ? weekStart.slice(0, 7) : '2026-08');
+    const employeeId = request.user?.userId ? String(request.user.userId) : undefined;
+    try {
+      return await TimesheetService.saveDailyEntries(projectId, monthStr, employeeId, request.user!.role, entries, 'Draft');
+    } catch (err: any) {
+      return reply.status(403).send({ error: err.message });
+    }
+  });
+
+  // POST submit daily entries (by Employee or PM)
+  fastify.post('/timesheets/daily-entries/submit', async (request, reply) => {
+    const { projectId, month, weekStart, entries } = request.body as {
+      projectId: string; month?: string; weekStart?: string; entries: any[];
+    };
+    const monthStr = month || (weekStart ? weekStart.slice(0, 7) : '2026-08');
+    const employeeId = request.user?.userId ? String(request.user.userId) : undefined;
+    try {
+      return await TimesheetService.saveDailyEntries(projectId, monthStr, employeeId, request.user!.role, entries, 'Submitted');
+    } catch (err: any) {
+      return reply.status(403).send({ error: err.message });
+    }
+  });
+
+  // POST approve daily entries (PM -> PM_Approved, Super Admin -> Approved)
+  fastify.post('/timesheets/daily-entries/approve', async (request, reply) => {
+    const { projectId, month } = request.body as { projectId: string; month: string };
+    const employeeId = request.user?.userId ? String(request.user.userId) : undefined;
+    try {
+      return await TimesheetService.approveTimesheet(projectId, month || '2026-08', employeeId, request.user!.role);
+    } catch (err: any) {
+      return reply.status(403).send({ error: err.message });
+    }
+  });
+
+  // POST reopen daily entries (PM or Super Admin -> sets to Draft to allow Emp rework)
+  fastify.post('/timesheets/daily-entries/reopen', async (request, reply) => {
+    const { projectId, month } = request.body as { projectId: string; month: string };
+    const employeeId = request.user?.userId ? String(request.user.userId) : undefined;
+    try {
+      return await TimesheetService.reopenTimesheet(projectId, month || '2026-08', employeeId, request.user!.role);
+    } catch (err: any) {
+      return reply.status(403).send({ error: err.message });
+    }
+  });
+
+  // Legacy timesheet routes for fallback
+  fastify.get('/timesheets', { schema: getTimesheetSchema }, async (request) => {
     const { weekStart } = request.query as { weekStart: string };
-    const sheet = await TimesheetService.getWeeklySheet(weekStart);
-    return sheet;
+    return TimesheetService.getWeeklySheet(weekStart);
   });
 
-  // POST save draft hours
   fastify.post('/timesheets/save', { schema: saveTimesheetSchema }, async (request, reply) => {
-    const { weekStart, rows } = request.body as {
-      weekStart: string;
-      rows: any[];
-    };
-    const role = request.user!.role;
-
-    const result = await TimesheetService.saveDraft(weekStart, role, rows);
-    if (!result.success) {
-      return reply.status(403).send({ error: result.error });
-    }
+    const { weekStart, rows } = request.body as { weekStart: string; rows: any[] };
+    const result = await TimesheetService.saveDraft(weekStart, request.user!.role, rows);
+    if (!result.success) return reply.status(403).send({ error: result.error });
     return result.data;
   });
 
-  // POST submit weekly hours for approval
   fastify.post('/timesheets/submit', { schema: saveTimesheetSchema }, async (request, reply) => {
-    const { weekStart, rows } = request.body as {
-      weekStart: string;
-      rows: any[];
-    };
-    const role = request.user!.role;
-
-    const result = await TimesheetService.submitSheet(weekStart, role, rows);
-    if (!result.success) {
-      return reply.status(403).send({ error: result.error });
-    }
+    const { weekStart, rows } = request.body as { weekStart: string; rows: any[] };
+    const result = await TimesheetService.submitSheet(weekStart, request.user!.role, rows);
+    if (!result.success) return reply.status(403).send({ error: result.error });
     return result.data;
   });
 
-  // POST approve or reject weekly hours
   fastify.post('/timesheets/approve', { schema: approveTimesheetSchema }, async (request, reply) => {
-    const { weekStart, action } = request.body as {
-      weekStart: string;
-      action: 'approve' | 'reject';
-    };
-    const role = request.user!.role;
-
-    const result = await TimesheetService.approveOrRejectSheet(weekStart, role, action);
-    if (!result.success) {
-      return reply.status(403).send({ error: result.error });
-    }
+    const { weekStart, action } = request.body as { weekStart: string; action: 'approve' | 'reject' };
+    const result = await TimesheetService.approveOrRejectSheet(weekStart, request.user!.role, action);
+    if (!result.success) return reply.status(403).send({ error: result.error });
     return result.data;
   });
 };

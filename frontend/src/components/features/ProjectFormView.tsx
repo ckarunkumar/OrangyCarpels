@@ -1,26 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, UserCheck, Users } from 'lucide-react';
+import { ArrowLeft, UserCheck, X } from 'lucide-react';
+import { Project } from './ProjectDrawer';
 import { Client } from './ClientDrawer';
 import { Employee } from './EmployeeDrawer';
 import { UserRole } from '../ui/Layout';
-
-export interface Project {
-  id: string; name: string;
-  billingType: 'T&M' | 'Fixed RC' | 'Fixed PC' | 'Hourly Rate (T&M)' | 'Monthly Res Cost (Fixed)' | 'Monthly Resource Cost (Fixed)' | 'Project Cost (Fixed)' | string;
-  rate: string; currency?: string; startDate?: string; endDate?: string;
-  budgetHours: number; loggedHours: number; status: 'Active' | 'Inactive';
-  clientId: string; clientName?: string; clientCurrency?: string;
-  managerId?: string; managerName?: string; assignedEmployees?: string[];
-}
+import Breadcrumbs from '../ui/Breadcrumbs';
 
 const CURRENCIES = ['USD ($)', 'INR (₹)', 'EUR (€)', 'GBP (£)', 'SGD ($)', 'AUD ($)', 'CAD ($)', 'AED (د.إ)', 'JPY (¥)', 'CHF (Fr.)'];
 
-interface ProjectDrawerProps {
-  open: boolean; mode: 'add' | 'edit'; project: Project | null; clients: Client[];
-  employees?: Employee[]; activeRole?: UserRole; onClose: () => void; onSaved: () => void;
+interface ProjectFormViewProps {
+  mode: 'add' | 'edit';
+  project: Project | null;
+  clients: Client[];
+  employees?: Employee[];
+  activeRole?: UserRole;
+  onBack: () => void;
+  onSaved: (msg?: string) => void;
 }
 
-export default function ProjectDrawer({ open, mode, project, clients, employees = [], activeRole, onClose, onSaved }: ProjectDrawerProps) {
+export default function ProjectFormView({ mode, project, clients, employees = [], activeRole, onBack, onSaved }: ProjectFormViewProps) {
   const isSA = activeRole === 'Super Admin';
   const [projectId, setProjectId] = useState(''); const [name, setName] = useState(''); const [clientId, setClientId] = useState('');
   const [billingType, setBillingType] = useState<string>('T&M'); const [rateAmount, setRateAmount] = useState('50');
@@ -38,30 +36,28 @@ export default function ProjectDrawer({ open, mode, project, clients, employees 
   };
 
   useEffect(() => {
-    if (open) {
-      setError(null);
-      if (mode === 'edit' && project) {
-        setProjectId(project.id); setName(project.name); setClientId(project.clientId);
-        setBillingType(normalizeBType(project.billingType));
-        const parsed = parseFloat(project.rate.replace(/[^0-9.]/g, ''));
-        setRateAmount(isNaN(parsed) ? '50' : String(parsed));
-        setCurrency(project.currency || project.clientCurrency || 'USD ($)');
-        setStartDate(project.startDate || new Date().toISOString().split('T')[0]);
-        setEndDate(project.endDate || ''); setBudgetHours(String(project.budgetHours || 100));
-        setStatus(project.status); setManagerId(project.managerId || '');
-        setAssignedEmployees(project.assignedEmployees || []);
-      } else {
-        const initC = clients[0];
-        setProjectId(''); setName(''); setClientId(initC?.id || '');
-        setBillingType(normalizeBType(initC?.defaultBillingType));
-        setRateAmount('50'); setCurrency(initC?.billingCurrency || 'USD ($)');
-        setStartDate(new Date().toISOString().split('T')[0]); setEndDate(''); setBudgetHours('100'); setStatus('Active');
-        const defaultPM = employees.find((e) => e.role === 'Project Manager');
-        setManagerId(defaultPM?.employeeId || ''); setAssignedEmployees([]);
-      }
-      setTimeout(() => inputRef.current?.focus(), 150);
+    setError(null);
+    if (mode === 'edit' && project) {
+      setProjectId(project.id); setName(project.name); setClientId(project.clientId);
+      setBillingType(normalizeBType(project.billingType));
+      const parsed = parseFloat(project.rate.replace(/[^0-9.]/g, ''));
+      setRateAmount(isNaN(parsed) ? '50' : String(parsed));
+      setCurrency(project.currency || project.clientCurrency || 'USD ($)');
+      setStartDate(project.startDate || new Date().toISOString().split('T')[0]);
+      setEndDate(project.endDate || ''); setBudgetHours(String(project.budgetHours || 100));
+      setStatus(project.status); setManagerId(project.managerId || '');
+      setAssignedEmployees(project.assignedEmployees || []);
+    } else {
+      const initC = clients[0];
+      setProjectId(''); setName(''); setClientId(initC?.id || '');
+      setBillingType(normalizeBType(initC?.defaultBillingType));
+      setRateAmount('50'); setCurrency(initC?.billingCurrency || 'USD ($)');
+      setStartDate(new Date().toISOString().split('T')[0]); setEndDate(''); setBudgetHours('100'); setStatus('Active');
+      const defaultPM = employees.find((e) => e.role === 'Project Manager' || e.role === 'Super Admin');
+      setManagerId(defaultPM?.employeeId || ''); setAssignedEmployees([]);
     }
-  }, [open, mode, project, clients, employees]);
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, [mode, project, clients, employees]);
 
   const handleClientChange = (newClientId: string) => {
     setClientId(newClientId);
@@ -89,7 +85,7 @@ export default function ProjectDrawer({ open, mode, project, clients, employees 
     if (isNaN(amount) || amount < 0) { setError('Please enter a valid rate amount.'); return; }
     let hours = isHourly ? Number(budgetHours) : 0;
     if (isHourly && (!hours || hours <= 0)) { setError('Budget hours must be positive.'); return; }
-    setSaving(true);
+    setSaving(true); setError(null);
     try {
       const formattedRate = `${currency.replace(/\s*\(.*\)/, '')} ${amount.toLocaleString()}${isHourly ? '/hr' : billingType.includes('Monthly') ? '/mo' : ''}`;
       const selectedPM = employees.find((e) => e.employeeId === managerId);
@@ -104,31 +100,39 @@ export default function ProjectDrawer({ open, mode, project, clients, employees 
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save project.');
-      onSaved(); onClose();
+      onSaved(mode === 'edit' ? `Project ${name} updated successfully.` : `Project ${name} created successfully.`);
     } catch (err: any) { setError(err.message); } finally { setSaving(false); }
   };
 
-  const inputCls = "w-full px-3 py-1.5 border border-studio-border hover:border-studio-muted/50 rounded text-[12.5px] text-studio-text bg-white focus:outline-none focus:border-brand-orange transition-colors";
+  const inputCls = "w-full px-3 py-2 border border-studio-border hover:border-studio-muted/60 rounded-md text-[12.5px] text-studio-text bg-white focus:outline-none focus:border-brand-orange transition-colors";
   const labelCls = "block text-[11px] font-medium text-studio-muted mb-1";
+  const sectionTitleCls = "text-[13px] font-bold text-studio-text uppercase tracking-wider pb-1.5 border-b border-studio-border/70";
 
   return (
-    <>
-      <div onClick={onClose} className={`fixed inset-0 z-40 bg-black/15 backdrop-blur-[1px] transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} />
-      <div className={`fixed top-0 right-0 z-50 h-full w-full max-w-4xl bg-white shadow-xl flex flex-col transition-transform duration-250 ease-out ${open ? 'translate-x-0' : 'translate-x-full'}`}>
-        <div className="flex items-center justify-between px-7 py-3.5 border-b border-studio-border shrink-0">
+    <div className="w-full space-y-5 animate-in fade-in duration-200">
+      <Breadcrumbs items={[{ label: 'Project Registry', onClick: onBack }, { label: mode === 'edit' ? `Edit Project (${project?.name || ''})` : 'New Project' }]} />
+      {/* Top Bar Navigation */}
+      <div className="flex items-center justify-between border-b border-studio-border pb-3">
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={onBack} className="p-1.5 rounded-lg border border-studio-border bg-white hover:bg-studio-sidebar text-studio-text transition-colors cursor-pointer" title="Back to Project Registry"><ArrowLeft className="w-4 h-4" /></button>
           <div>
-            <h3 className="text-[16px] font-semibold text-studio-text">{mode === 'edit' ? 'Edit Project' : 'New Project'}</h3>
-            <p className="text-[11px] text-studio-muted mt-0.5">{mode === 'edit' ? `Project: ${project?.name} (${project?.id})` : 'Fill in project information, budget, and assign team members'}</p>
+            <h2 className="text-[20px] font-bold tracking-tight text-studio-text">{mode === 'edit' ? `Edit Project (${project?.name})` : 'New Project'}</h2>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-studio-muted hover:bg-studio-sidebar transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
         </div>
+        <div className="flex items-center gap-2.5">
+          <button type="button" onClick={onBack} className="px-4 py-2 border border-studio-border rounded-md text-[12px] font-semibold text-studio-text hover:bg-studio-sidebar transition-colors cursor-pointer">Cancel</button>
+          <button type="submit" form="project-full-form" disabled={saving} className="px-5 py-2 bg-brand-orange text-white rounded-md text-[12px] font-semibold hover:bg-opacity-95 shadow-sm transition-all disabled:opacity-50 cursor-pointer">{saving ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Create Project'}</button>
+        </div>
+      </div>
 
-        <form id="project-drawer-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-7 py-5 space-y-4">
-          {error && <div className="p-2.5 bg-red-50 text-red-700 rounded text-[11px] font-medium">{error}</div>}
+      {error && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-[12px] font-medium">{error}</div>}
 
-          {/* 3-Column Layout Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3.5">
-            <div><label className="block text-[11px] font-bold text-brand-orange mb-1">Project ID *</label><input type="text" placeholder="AODP0001" disabled={mode === 'edit'} value={projectId} onChange={(e) => setProjectId(e.target.value)} className={`${inputCls} font-mono uppercase ${mode === 'edit' ? 'bg-studio-sidebar opacity-75' : ''}`} /></div>
+      <form id="project-full-form" onSubmit={handleSubmit} className="bg-white border border-studio-border rounded-lg shadow-sm p-6 space-y-7">
+        {/* 1. Project Information */}
+        <div className="space-y-3">
+          <h3 className={sectionTitleCls}>1. Project Information & Billing</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
+            <div><label className="block text-[11px] font-bold text-brand-orange mb-1">Project ID *</label><input type="text" placeholder="AODP0001" disabled={mode === 'edit'} value={projectId} onChange={(e) => setProjectId(e.target.value)} className={`${inputCls} font-mono uppercase font-semibold ${mode === 'edit' ? 'bg-studio-sidebar opacity-75' : ''}`} /></div>
             <div><label className={labelCls}>Client *</label><select value={clientId} onChange={(e) => handleClientChange(e.target.value)} className={inputCls}>{clients.map((c) => (<option key={c.id} value={c.id}>{c.displayName || c.name}</option>))}</select></div>
             <div><label className={labelCls}>Project Name *</label><input ref={inputRef} type="text" placeholder="e.g. Design System V2" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} /></div>
 
@@ -150,42 +154,42 @@ export default function ProjectDrawer({ open, mode, project, clients, employees 
             <div><label className={labelCls}>Currency</label><select value={currency} onChange={(e) => setCurrency(e.target.value)} className={inputCls}>{CURRENCIES.map((c) => (<option key={c} value={c}>{c}</option>))}</select></div>
             <div><label className={labelCls}>Start Date *</label><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={inputCls} /></div>
             <div><label className={labelCls}>End Date</label><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={inputCls} /></div>
+
             {isHourly && (<div><label className={labelCls}>Budget Hours *</label><input type="number" placeholder="100" value={budgetHours} onChange={(e) => setBudgetHours(e.target.value)} className={inputCls} /></div>)}
             {isSA && (<div><label className={labelCls}>Status</label><select value={status} onChange={(e) => setStatus(e.target.value as any)} className={inputCls}><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>)}
           </div>
+        </div>
 
-          {/* Assign Team Members (3-Column Width) */}
-          <div className="space-y-2 pt-2 border-t border-studio-border/70">
-            <label className="flex items-center gap-1 text-[12px] font-bold text-studio-text"><Users className="w-3.5 h-3.5 text-brand-blue" /> Assign Team Members ({assignedEmployees.length} assigned)</label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2">
-              <div>
-                <select value="" onChange={(e) => addEmployee(e.target.value)} className={inputCls}>
-                  <option value="">+ Select Employee to Assign...</option>
-                  {unassigned.map((emp) => (<option key={emp.id} value={emp.employeeId || String(emp.id)}>{emp.fullName} ({emp.designation})</option>))}
-                </select>
-              </div>
+        {/* 2. Assign Team Members */}
+        <div className="space-y-3">
+          <h3 className={sectionTitleCls}>2. Team Member Allocation ({assignedEmployees.length} assigned)</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
+            <div>
+              <label className={labelCls}>Add Employee to Project</label>
+              <select value="" onChange={(e) => addEmployee(e.target.value)} className={inputCls}>
+                <option value="">+ Select Employee to Assign...</option>
+                {unassigned.map((emp) => (<option key={emp.id} value={emp.employeeId || String(emp.id)}>{emp.fullName} ({emp.designation})</option>))}
+              </select>
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>Assigned Team Members</label>
             {assignedEmployees.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5 p-2.5 bg-studio-sidebar/40 border border-studio-border rounded-lg max-h-24 overflow-y-auto">
+              <div className="flex flex-wrap gap-2 p-3 bg-studio-sidebar/40 border border-studio-border rounded-lg min-h-[48px]">
                 {assignedEmployees.map((empCode) => {
                   const emp = staffEmployees.find((e) => (e.employeeId || String(e.id)) === empCode);
                   return (
-                    <span key={empCode} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-orange-50 text-brand-orange border border-brand-orange/30 shadow-2xs">
+                    <span key={empCode} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-medium bg-orange-50 text-brand-orange border border-brand-orange/30 shadow-2xs">
                       <span>{emp ? emp.fullName : empCode}</span>
-                      <button type="button" onClick={() => removeEmployee(empCode)} className="w-3.5 h-3.5 rounded-full flex items-center justify-center hover:bg-brand-orange/20 transition-colors cursor-pointer"><X className="w-2.5 h-2.5" /></button>
+                      <button type="button" onClick={() => removeEmployee(empCode)} className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-brand-orange/20 transition-colors cursor-pointer"><X className="w-3 h-3" /></button>
                     </span>
                   );
                 })}
               </div>
-            ) : (<div className="text-[11px] text-studio-muted py-2 bg-studio-sidebar/20 border border-dashed border-studio-border rounded-lg px-2.5">No team members assigned yet. Use the dropdown to add employees.</div>)}
+            ) : (<div className="text-[12px] text-studio-muted py-2.5 bg-studio-sidebar/20 border border-dashed border-studio-border rounded-lg px-3">No team members assigned yet. Use the dropdown above to allocate employees.</div>)}
           </div>
-        </form>
-
-        <div className="shrink-0 px-7 py-3.5 border-t border-studio-border flex items-center justify-end gap-3 bg-white">
-          <button type="button" onClick={onClose} className="px-4 py-1.5 text-[12px] font-medium text-studio-muted hover:text-studio-text transition-colors cursor-pointer">Cancel</button>
-          <button type="submit" form="project-drawer-form" disabled={saving} className="px-4 py-1.5 text-[12px] font-semibold text-white bg-brand-orange rounded hover:bg-opacity-95 transition-colors disabled:opacity-50 cursor-pointer">{saving ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Create Project'}</button>
         </div>
-      </div>
-    </>
+      </form>
+    </div>
   );
 }

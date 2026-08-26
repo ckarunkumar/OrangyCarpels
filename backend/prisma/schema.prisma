@@ -9,7 +9,7 @@ generator client {
 
 model Employee {
   id               Int          @id @default(autoincrement())
-  employeeId       String       @default("")
+  employeeId       String       @unique
   fullName         String
   dob              String?      @default("")
   designation      String       @default("Team Member")
@@ -56,6 +56,8 @@ model Experience {
 model Client {
   id                 String    @id
   name               String
+  legalName          String?   @default("")
+  displayName        String?   @default("")
   contactPerson      String?   @default("")
   email              String?   @default("") // Contact Email
   phone              String?   @default("") // Contact Phone
@@ -64,26 +66,71 @@ model Client {
   accountsPhone      String?   @default("")
   address            String?   @default("") // Office Address
   country            String?   @default("India")
+  cinNumber          String?   @default("")
   gstNumber          String?   @default("")
   panNumber          String?   @default("")
   msmeNumber         String?   @default("")
   billingCurrency    String    @default("USD ($)")
-  defaultBillingType String    @default("Hourly Rate (T&M)")
+  defaultBillingType String    @default("T&M")
   dueTime            String    @default("30 days") // 15 days, 30 days, 45 days, 60 days, 90 days
   status             String    @default("Active") // Active, Inactive
   projects           Project[]
 }
 
 model Project {
-  id          String @id
-  name        String
-  billingType String // Hourly Rate (T&M), Monthly Resource Cost (Fixed), Project Cost (Fixed)
-  rate        String
-  budgetHours Int
-  loggedHours Int    @default(0)
-  status      String // Active, Inactive
-  clientId    String
-  client      Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id                String                 @id
+  name              String
+  billingType       String // T&M, Fixed RC, Fixed PC
+  rate              String
+  currency          String                 @default("USD ($)")
+  startDate         String?                @default("")
+  endDate           String?                @default("")
+  budgetHours       Int                    @default(0)
+  loggedHours       Int                    @default(0)
+  status            String // Active, Inactive
+  managerId         String?                @default("")
+  managerName       String?                @default("")
+  assignedEmployees String?                @default("")
+  clientId          String
+  client            Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  rateVersions      ProjectRateVersion[]
+  monthlyBudgets    ProjectMonthlyBudget[]
+  dailyEntries      DailyTimesheetEntry[]
+}
+
+model ProjectMonthlyBudget {
+  id          Int      @id @default(autoincrement())
+  projectId   String
+  monthYear   String   // e.g. 2026-08
+  budgetHours Float    @default(0)
+  isLocked    Boolean  @default(false)
+  updatedAt   DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, monthYear])
+}
+
+model ProjectRateVersion {
+  id                 Int      @id @default(autoincrement())
+  projectId          String
+  billingType        String
+  rateAmount         Float
+  currency           String   @default("USD ($)")
+  effectiveStartDate String
+  effectiveEndDate   String?  @default("")
+  notes              String?  @default("")
+  createdAt          DateTime @default(now())
+  project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ExchangeRate {
+  id        Int      @id @default(autoincrement())
+  currency  String   // e.g. USD, EUR, GBP, AED, SGD, CAD, JPY, CHF, INR
+  rateToINR Float    // Multiplier to convert to INR (e.g. 87.50)
+  monthYear String   // e.g. 2026-08
+  isLocked  Boolean  @default(false)
+  fetchedAt DateTime @default(now())
+  source    String   @default("online")
 }
 
 model Timesheet {
@@ -108,4 +155,38 @@ model TimesheetRow {
   sun         Float     @default(0)
   timesheetId Int
   timesheet   Timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
+}
+
+model DailyTimesheetEntry {
+  id          Int      @id @default(autoincrement())
+  date        String   // e.g. 2026-08-17
+  dayLabel    String   // e.g. Aug 17, Mon
+  sno         String   // e.g. 01, 02...
+  description String   @default("")
+  task        String   @default("") // e.g. Ideation, Design, AI Design, Validation, Analysis, Approval
+  hours       Float    @default(0)
+  isBillable  Boolean  @default(true)
+  projectId   String
+  employeeId  String?  @default("")
+  weekStart   String   // e.g. 2026-08-17
+  status      String   @default("Draft") // Draft, Submitted, PM_Approved, Approved
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, date, employeeId])
+}
+
+model Notification {
+  id        Int       @id @default(autoincrement())
+  userId    Int?
+  role      String?   // 'Employee', 'Project Manager', 'Super Admin', or 'All'
+  title     String
+  message   String
+  type      String    // 'timesheet_submit', 'timesheet_approve', 'timesheet_reopen', 'project_assign', 'deadline_reminder'
+  projectId String?   @default("")
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
 }

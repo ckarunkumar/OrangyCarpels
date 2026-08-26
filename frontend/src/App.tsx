@@ -17,8 +17,8 @@ function AppContent() {
     return (
       <div className="min-h-screen bg-studio-bg flex flex-col justify-center items-center font-sans">
         <img
-          src="/logo.png"
-          alt="Orangy Carpels"
+          src="/logo.svg"
+          alt="Orangyy Carpels"
           className="w-10 h-10 object-contain animate-pulse mb-3"
         />
         <span className="text-[12px] text-studio-muted font-medium">Loading Studio OS...</span>
@@ -85,6 +85,7 @@ function AppContent() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/billing" element={<Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </ErrorBoundary>

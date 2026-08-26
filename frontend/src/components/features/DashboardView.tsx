@@ -1,296 +1,172 @@
+import { useState, useEffect } from 'react';
 import { UserRole } from '../ui/Layout';
-import { TrendingUp, DollarSign, Clock, Users, ArrowUpRight } from 'lucide-react';
+import { DollarSign, Clock, Layers, FolderKanban, RefreshCw, History, TrendingUp } from 'lucide-react';
+import { SkeletonRow } from '../ui/Skeleton';
+import RateHistoryDrawer from './RateHistoryDrawer';
+import BillingBadge from '../ui/BillingBadge';
+import Breadcrumbs from '../ui/Breadcrumbs';
 
-interface DashboardViewProps {
-  activeRole: UserRole;
+interface ProjectBilling {
+  projectId: string; projectName: string; clientId: string; clientName: string;
+  billingType: 'T&M' | 'Fixed RC' | 'Fixed PC' | 'Hourly Rate (T&M)' | 'Monthly Resource Cost (Fixed)' | 'Project Cost (Fixed)' | string;
+  currency: string; rateAmount: number; rateFormatted: string; budgetHours: number;
+  loggedHours: number; nativeAmountBilled: number; exchangeRateToINR: number;
+  inrAmountBilled: number; status: string; effectiveStartDate: string;
 }
 
-export default function DashboardView({ activeRole }: DashboardViewProps) {
-  // Mock data for display
-  const metrics = {
-    revenue: '₹18,45,000',
-    totalHours: '1,240 hrs',
-    activeProjects: '12',
-    utilizationRate: '78%',
-    budgetAlerts: [
-      { client: 'Acme Corp', project: 'Website Redesign', budget: 100, actual: 78, status: 'Yellow' },
-      { client: 'Hooli Inc', project: 'Mobile App V2', budget: 200, actual: 195, status: 'Red' },
-      { client: 'Stark Ind', project: 'Brand Strategy', budget: 80, actual: 40, status: 'Green' },
-    ],
+interface BillingOverview {
+  totalRevenueINR: number; tmRevenueINR: number; monthlyFixedRevenueINR: number;
+  projectFixedRevenueINR: number; totalHoursLogged: number; activeProjectsCount: number;
+  exchangeRates: Array<{ currency: string; rateToINR: number; source: string; isLocked: boolean }>;
+  projects: ProjectBilling[]; activeMonthYear: string;
+}
+
+const FISCAL_YEARS = ['FY 2026-27 (Current)', 'FY 2025-26 (Past)', 'FY 2024-25 (Archived)'];
+
+export default function DashboardView({ activeRole }: { activeRole: UserRole }) {
+  const [data, setData] = useState<BillingOverview | null>(null);
+  const [selectedFY, setSelectedFY] = useState(FISCAL_YEARS[0]);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [historyProj, setHistoryProj] = useState<ProjectBilling | null>(null);
+
+  const fetchDashboard = () => {
+    if (activeRole !== 'Super Admin') { setLoading(false); return; }
+    setLoading(true);
+    fetch('/api/billing/summary')
+      .then((res) => res.ok ? res.json() : null)
+      .then((resData) => { if (resData) setData(resData); })
+      .finally(() => setLoading(false));
   };
 
-  const renderSuperAdminDashboard = () => (
-    <div className="space-y-6">
-      {/* Top Cards Grid */}
+  useEffect(() => { fetchDashboard(); }, [activeRole]);
+
+  const handleSyncRates = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/billing/rates/sync', { method: 'POST' });
+      if (res.ok) fetchDashboard();
+    } finally { setSyncing(false); }
+  };
+
+  const renderSuperAdmin = () => (
+    <div className="space-y-5">
+      {/* Top 4 Financial Metric Cards in INR */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 border border-studio-border rounded-lg">
-          <div className="flex justify-between items-start mb-2">
-            <span className="text-[12px] text-studio-muted font-medium">Monthly Revenue</span>
-            <DollarSign className="w-4 h-4 text-brand-orange" />
-          </div>
-          <p className="text-[20px] font-bold text-studio-text">{metrics.revenue}</p>
-          <span className="text-[10px] text-green-600 font-semibold flex items-center gap-0.5 mt-1">
-            <TrendingUp className="w-3 h-3" /> +12.4% vs last month
-          </span>
+        <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm">
+          <div className="flex justify-between items-start mb-1"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider">Total Revenue (INR)</span><DollarSign className="w-4 h-4 text-brand-orange" /></div>
+          <p className="text-[22px] font-bold text-studio-text">₹{data?.totalRevenueINR.toLocaleString() || '0'}</p>
+          <span className="text-[10px] text-green-600 font-semibold flex items-center gap-0.5 mt-0.5"><TrendingUp className="w-3 h-3" /> Live multi-currency rate applied</span>
         </div>
-
-        <div className="bg-white p-4 border border-studio-border rounded-lg">
-          <div className="flex justify-between items-start mb-2">
-            <span className="text-[12px] text-studio-muted font-medium">Total Hours Tracked</span>
-            <Clock className="w-4 h-4 text-brand-blue" />
-          </div>
-          <p className="text-[20px] font-bold text-studio-text">{metrics.totalHours}</p>
-          <span className="text-[10px] text-studio-muted mt-1 block">85% billable hours</span>
+        <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm">
+          <div className="flex justify-between items-start mb-1"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider">Hourly T&M (INR)</span><Clock className="w-4 h-4 text-brand-blue" /></div>
+          <p className="text-[22px] font-bold text-studio-text">₹{data?.tmRevenueINR.toLocaleString() || '0'}</p>
+          <span className="text-[10px] text-studio-muted mt-0.5 block">{data?.totalHoursLogged || 0} billable hours logged</span>
         </div>
-
-        <div className="bg-white p-4 border border-studio-border rounded-lg">
-          <div className="flex justify-between items-start mb-2">
-            <span className="text-[12px] text-studio-muted font-medium">Studio Utilization</span>
-            <Users className="w-4 h-4 text-green-600" />
-          </div>
-          <p className="text-[20px] font-bold text-studio-text">{metrics.utilizationRate}</p>
-          <span className="text-[10px] text-studio-muted mt-1 block">Target: 80% baseline</span>
+        <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm">
+          <div className="flex justify-between items-start mb-1"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider">Monthly Retainers (INR)</span><Layers className="w-4 h-4 text-purple-600" /></div>
+          <p className="text-[22px] font-bold text-studio-text">₹{data?.monthlyFixedRevenueINR.toLocaleString() || '0'}</p>
+          <span className="text-[10px] text-studio-muted mt-0.5 block">Fixed monthly recurring billing</span>
         </div>
-
-        <div className="bg-white p-4 border border-studio-border rounded-lg">
-          <div className="flex justify-between items-start mb-2">
-            <span className="text-[12px] text-studio-muted font-medium">Active Projects</span>
-            <BriefcaseIcon className="w-4 h-4 text-purple-600" />
-          </div>
-          <p className="text-[20px] font-bold text-studio-text">{metrics.activeProjects}</p>
-          <span className="text-[10px] text-studio-muted mt-1 block">3 clients onboarding</span>
+        <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm">
+          <div className="flex justify-between items-start mb-1"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider">Fixed Projects (INR)</span><FolderKanban className="w-4 h-4 text-green-600" /></div>
+          <p className="text-[22px] font-bold text-studio-text">₹{data?.projectFixedRevenueINR.toLocaleString() || '0'}</p>
+          <span className="text-[10px] text-studio-muted mt-0.5 block">{data?.activeProjectsCount || 0} active project accounts</span>
         </div>
       </div>
 
-      {/* SVG Charts Area */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Revenue Trend Line Chart */}
-        <div className="bg-white p-5 border border-studio-border rounded-lg">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h3 className="text-[13px] font-bold text-studio-text">Revenue Trend</h3>
-              <p className="text-[10px] text-studio-muted">Time-series normalized in INR</p>
-            </div>
-            <select className="text-[11px] border border-studio-border rounded px-1.5 py-0.5 bg-studio-sidebar font-medium text-studio-muted">
-              <option>Last 30 days</option>
-              <option>This Month</option>
-              <option>Custom Range</option>
-            </select>
-          </div>
-          {/* Simple Visual Line Chart using SVG */}
-          <div className="h-44 w-full flex items-end">
-            <svg className="w-full h-full" viewBox="0 0 100 40" preserveAspectRatio="none">
-              <path
-                d="M0,35 Q15,30 30,22 T60,15 T90,5 L100,5"
-                fill="none"
-                stroke="#FF5C00"
-                strokeWidth="2"
-              />
-              <path
-                d="M0,35 Q15,30 30,22 T60,15 T90,5 L100,5 L100,40 L0,40 Z"
-                fill="url(#gradient)"
-                opacity="0.08"
-              />
-              <defs>
-                <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#FF5C00" />
-                  <stop offset="100%" stopColor="#FF5C00" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-          <div className="flex justify-between text-[9px] text-studio-muted mt-2 px-1">
-            <span>Aug 1</span>
-            <span>Aug 10</span>
-            <span>Aug 20</span>
-            <span>Today</span>
-          </div>
-        </div>
-
-        {/* Billable vs Non-Billable Hours Stacked Bar Chart */}
-        <div className="bg-white p-5 border border-studio-border rounded-lg">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h3 className="text-[13px] font-bold text-studio-text">Hours Analysis</h3>
-              <p className="text-[10px] text-studio-muted">Billable vs Non-Billable</p>
-            </div>
-          </div>
-          <div className="h-44 flex flex-col justify-between py-2">
-            {[
-              { label: 'Week 1', billable: 75, nonBillable: 25 },
-              { label: 'Week 2', billable: 80, nonBillable: 20 },
-              { label: 'Week 3', billable: 88, nonBillable: 12 },
-              { label: 'Week 4', billable: 82, nonBillable: 18 },
-            ].map((item) => (
-              <div key={item.label} className="flex items-center gap-3">
-                <span className="text-[10px] text-studio-muted w-12 shrink-0">{item.label}</span>
-                <div className="flex-1 h-3 flex rounded overflow-hidden bg-studio-hover">
-                  <div className="bg-brand-blue" style={{ width: `${item.billable}%` }}></div>
-                  <div className="bg-studio-muted/30" style={{ width: `${item.nonBillable}%` }}></div>
-                </div>
-                <span className="text-[10px] text-studio-text font-bold w-8 text-right">{item.billable + item.nonBillable}h</span>
-              </div>
+      {/* Live Currency Rates Bar */}
+      {data?.exchangeRates && (
+        <div className="p-3 bg-studio-sidebar border border-studio-border rounded-lg flex items-center justify-between overflow-x-auto text-[11px]">
+          <span className="font-bold text-studio-text uppercase tracking-wider shrink-0 mr-3">Exchange Rates (to INR):</span>
+          <div className="flex items-center gap-4 text-studio-muted font-mono shrink-0">
+            {data.exchangeRates.filter((r) => r.currency !== 'INR').slice(0, 7).map((r) => (
+              <span key={r.currency} className="flex items-center gap-1"><span className="font-bold text-studio-text">{r.currency}</span>: ₹{r.rateToINR.toFixed(2)}</span>
             ))}
           </div>
-          <div className="flex gap-4 text-[9px] text-studio-muted mt-2 justify-center">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-brand-blue"></span> Billable</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-studio-muted/30"></span> Non-Billable</span>
-          </div>
+          <span className="text-[10px] text-studio-muted font-sans shrink-0 ml-3">Month: {data.activeMonthYear}</span>
         </div>
-      </div>
+      )}
 
-      {/* Budget Alerts Panel */}
-      <div className="bg-white border border-studio-border rounded-lg p-5">
-        <h3 className="text-[13px] font-bold text-studio-text mb-3">Client Budget Alert Status</h3>
-        <div className="divide-y divide-studio-border">
-          {metrics.budgetAlerts.map((alert) => {
-            const consumptionPercent = Math.round((alert.actual / alert.budget) * 100);
-            const statusColor =
-              alert.status === 'Red'
-                ? 'bg-brand-red text-red-700'
-                : alert.status === 'Yellow'
-                ? 'bg-amber-500 text-amber-800'
-                : 'bg-green-500 text-green-800';
+      {/* Projects Revenue & Billing Matrix */}
+      <div className="border border-studio-border rounded-lg bg-white overflow-hidden shadow-sm">
+        <div className="bg-studio-sidebar border-b border-studio-border px-4 py-2.5 text-[10px] font-bold text-studio-muted uppercase tracking-wider grid grid-cols-12 gap-2 items-center">
+          <div className="col-span-3">Project & Client</div>
+          <div className="col-span-2">Billing Model</div>
+          <div className="col-span-2">Contract Rate</div>
+          <div className="col-span-1 text-center">Hours</div>
+          <div className="col-span-2 text-right">Native Amount</div>
+          <div className="col-span-2 text-right">Total (INR ₹)</div>
+        </div>
 
-            return (
-              <div key={alert.project} className="py-3 flex items-center justify-between first:pt-0 last:pb-0">
-                <div>
-                  <h4 className="text-[12px] font-bold text-studio-text">{alert.project}</h4>
-                  <p className="text-[10px] text-studio-muted">{alert.client} — Consumption Threshold</p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <span className="text-[12px] font-bold text-studio-text">{alert.actual}h</span>
-                    <span className="text-[10px] text-studio-muted"> / {alert.budget}h budget</span>
-                  </div>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusColor} bg-opacity-15`}>
-                    {consumptionPercent}%
-                  </span>
-                </div>
+        <div className="divide-y divide-studio-border bg-white">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} />)
+          ) : data?.projects.map((p) => (
+            <div key={p.projectId} className="px-4 py-2.5 grid grid-cols-12 gap-2 text-[12px] items-center hover:bg-studio-hover/40 transition-colors">
+              <div className="col-span-3 min-w-0 pr-2">
+                <p className="font-semibold text-studio-text truncate">{p.projectName}</p>
+                <p className="text-[10px] text-studio-muted truncate">{p.clientName} • <span className="font-mono">{p.projectId}</span></p>
               </div>
-            );
-          })}
+              <div className="col-span-2 flex items-center">
+                <BillingBadge type={p.billingType} />
+              </div>
+              <div className="col-span-2 font-mono font-medium text-studio-text flex items-center gap-1.5">
+                <span>{p.rateFormatted}</span>
+                <button type="button" onClick={() => setHistoryProj(p)} title="View Rate History" className="text-brand-orange hover:opacity-75"><History className="w-3 h-3" /></button>
+              </div>
+              <div className="col-span-1 text-center font-mono text-studio-muted">{p.loggedHours}h</div>
+              <div className="col-span-2 text-right font-mono text-studio-muted">{p.currency.replace(/\s*\(.*\)/, '')} {p.nativeAmountBilled.toLocaleString()}</div>
+              <div className="col-span-2 text-right font-mono font-bold text-studio-text">₹{p.inrAmountBilled.toLocaleString()}</div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
 
-  const renderProjectManagerDashboard = () => (
-    <div className="space-y-6">
-      {/* PMs cannot see financial details */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-4 border border-studio-border rounded-lg">
-          <span className="text-[12px] text-studio-muted font-medium block mb-1">Total Hours Logged</span>
-          <p className="text-[20px] font-bold text-studio-text">{metrics.totalHours}</p>
-          <span className="text-[10px] text-studio-muted mt-1 block">For assigned team projects</span>
-        </div>
-        <div className="bg-white p-4 border border-studio-border rounded-lg">
-          <span className="text-[12px] text-studio-muted font-medium block mb-1">Team Utilization</span>
-          <p className="text-[20px] font-bold text-studio-text">81%</p>
-          <span className="text-[10px] text-green-600 font-semibold block mt-1">Above target threshold</span>
-        </div>
-        <div className="bg-white p-4 border border-studio-border rounded-lg">
-          <span className="text-[12px] text-studio-muted font-medium block mb-1">Assigned Projects</span>
-          <p className="text-[20px] font-bold text-studio-text">5</p>
-          <span className="text-[10px] text-studio-muted mt-1 block">Active under manager control</span>
-        </div>
-      </div>
-
-      <div className="bg-white border border-studio-border rounded-lg p-5">
-        <h3 className="text-[13px] font-bold text-studio-text mb-1">Team Hours & Log Status</h3>
-        <p className="text-[11px] text-studio-muted mb-4">Pending timesheet approvals for your team</p>
-        <div className="border border-studio-border rounded overflow-hidden text-[12px]">
-          <div className="bg-studio-sidebar border-b border-studio-border py-2 px-3 font-semibold text-studio-muted grid grid-cols-3">
-            <span>Employee</span>
-            <span>Logged Hours</span>
-            <span>Action Required</span>
-          </div>
-          <div className="divide-y divide-studio-border bg-white">
-            <div className="py-2.5 px-3 grid grid-cols-3 items-center">
-              <span className="font-bold">Alex Carter</span>
-              <span>38.5 hrs</span>
-              <span className="text-brand-orange font-medium flex items-center gap-1">
-                Pending Approval <ArrowUpRight className="w-3.5 h-3.5" />
-              </span>
-            </div>
-            <div className="py-2.5 px-3 grid grid-cols-3 items-center">
-              <span className="font-bold">Emma Watson</span>
-              <span>40.0 hrs</span>
-              <span className="text-green-600 font-medium">Approved</span>
-            </div>
-          </div>
-        </div>
-      </div>
+  const renderPM = () => (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider block mb-1">Tracked Team Hours</span><p className="text-[20px] font-bold text-studio-text">340 hrs</p><span className="text-[10px] text-studio-muted mt-1 block">Assigned projects</span></div>
+      <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider block mb-1">Team Utilization</span><p className="text-[20px] font-bold text-studio-text">81%</p><span className="text-[10px] text-green-600 font-semibold block mt-1">Above target baseline</span></div>
+      <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider block mb-1">Active Projects</span><p className="text-[20px] font-bold text-studio-text">5</p><span className="text-[10px] text-studio-muted mt-1 block">Under management</span></div>
     </div>
   );
 
-  const renderEmployeeDashboard = () => (
-    <div className="space-y-6">
-      {/* Employee Personal Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-4 border border-studio-border rounded-lg">
-          <span className="text-[12px] text-studio-muted font-medium block mb-1">Hours Logged (This Week)</span>
-          <p className="text-[20px] font-bold text-studio-text">32.5 hrs</p>
-          <span className="text-[10px] text-brand-orange font-semibold block mt-1">7.5 hrs remaining</span>
-        </div>
-        <div className="bg-white p-4 border border-studio-border rounded-lg">
-          <span className="text-[12px] text-studio-muted font-medium block mb-1">Leave Balance</span>
-          <p className="text-[20px] font-bold text-studio-text">14 days</p>
-          <span className="text-[10px] text-studio-muted mt-1 block">Casual: 6 | Sick: 8</span>
-        </div>
-        <div className="bg-white p-4 border border-studio-border rounded-lg">
-          <span className="text-[12px] text-studio-muted font-medium block mb-1">Assigned Projects</span>
-          <p className="text-[20px] font-bold text-studio-text">2</p>
-          <span className="text-[10px] text-studio-muted mt-1 block">Acme Website, Stark Branding</span>
-        </div>
-      </div>
-
-      <div className="bg-white border border-studio-border rounded-lg p-5">
-        <h3 className="text-[13px] font-bold text-studio-text mb-3">Your Upcoming Leaves</h3>
-        <div className="text-[12px] text-studio-muted text-center py-6 border border-dashed border-studio-border rounded">
-          No upcoming scheduled leaves. Need time off? Apply in the timesheet view.
-        </div>
-      </div>
+  const renderEmployee = () => (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider block mb-1">Weekly Hours</span><p className="text-[20px] font-bold text-studio-text">35.0 hrs</p><span className="text-[10px] text-brand-orange font-semibold block mt-1">5.0 hrs remaining</span></div>
+      <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider block mb-1">Leave Balance</span><p className="text-[20px] font-bold text-studio-text">14 days</p><span className="text-[10px] text-studio-muted mt-1 block">Casual: 6 | Sick: 8</span></div>
+      <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider block mb-1">Assigned Projects</span><p className="text-[20px] font-bold text-studio-text">2</p><span className="text-[10px] text-studio-muted mt-1 block">Active tasks</span></div>
     </div>
   );
 
   return (
-    <div className="w-full space-y-6">
-      <div className="flex justify-between items-center border-b border-studio-border pb-3">
-        <div>
-          <h2 className="text-[20px] font-bold tracking-tight text-studio-text">Studio Overview</h2>
-          <p className="text-[12px] text-studio-muted">Real-time activity and utilization statistics</p>
+    <>
+      <RateHistoryDrawer open={!!historyProj} projectId={historyProj?.projectId || ''} projectName={historyProj?.projectName || ''} clientCurrency={historyProj?.currency || 'USD ($)'} currentBillingType={historyProj?.billingType || 'Hourly Rate (T&M)'} isAdmin={activeRole === 'Super Admin'} onClose={() => setHistoryProj(null)} onSaved={fetchDashboard} />
+      <div className="w-full space-y-6">
+        <Breadcrumbs items={[{ label: 'Dashboard' }]} />
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-studio-border pb-3">
+          <div>
+            <h2 className="text-[20px] font-bold tracking-tight text-studio-text">Studio Dashboard</h2>
+            <p className="text-[12px] text-studio-muted">Live billing, multi-currency conversion, and resource metrics</p>
+          </div>
+          {activeRole === 'Super Admin' && (
+            <div className="flex items-center gap-2">
+              <select value={selectedFY} onChange={(e) => setSelectedFY(e.target.value)} className="px-2.5 py-1.5 border border-studio-border rounded bg-white text-[12px] font-medium text-studio-text">
+                {FISCAL_YEARS.map((fy) => (<option key={fy} value={fy}>{fy}</option>))}
+              </select>
+              <button onClick={handleSyncRates} disabled={syncing} className="flex items-center gap-1 px-3 py-1.5 bg-white border border-studio-border hover:border-brand-orange text-studio-text hover:text-brand-orange rounded text-[12px] font-semibold transition-colors disabled:opacity-50">
+                <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} /> {syncing ? 'Syncing...' : 'Sync Rates'}
+              </button>
+            </div>
+          )}
         </div>
-        <div className="text-[11px] text-studio-muted font-medium bg-white border border-studio-border rounded px-2.5 py-1 flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-brand-orange"></span>
-          Filters Enabled
-        </div>
+
+        {activeRole === 'Super Admin' && renderSuperAdmin()}
+        {activeRole === 'Project Manager' && renderPM()}
+        {activeRole === 'Employee' && renderEmployee()}
       </div>
-
-      {activeRole === 'Super Admin' && renderSuperAdminDashboard()}
-      {activeRole === 'Project Manager' && renderProjectManagerDashboard()}
-      {activeRole === 'Employee' && renderEmployeeDashboard()}
-    </div>
-  );
-}
-
-// Small layout helper
-function BriefcaseIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-      <rect width="20" height="14" x="2" y="6" rx="2" />
-    </svg>
+    </>
   );
 }

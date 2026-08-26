@@ -76,7 +76,7 @@ export default function UserProfileDrawer({ open, onClose }: UserProfileDrawerPr
             </div>
             <div className="text-center mt-1.5">
               <p className="text-[13px] font-bold text-studio-text">{user.fullName}</p>
-              <span className={`inline-block mt-0.5 text-[9.5px] font-semibold px-2 py-0.2 rounded-full border ${user.role === 'Super Admin' ? 'bg-purple-50 text-purple-700 border-purple-200' : user.role === 'Project Manager' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-600 border-gray-200'}`}>{user.role}</span>
+              <span className="inline-block mt-0.5 text-[9.5px] font-semibold px-2 py-0.2 rounded-full border bg-orange-50 text-brand-orange border-brand-orange/30">{user.designation || 'Team Member'}</span>
             </div>
           </div>
 

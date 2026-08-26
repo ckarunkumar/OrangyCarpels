@@ -36,12 +36,12 @@ export default function LoginView() {
         {/* Logo and Intro */}
         <div className="text-center space-y-3">
           <img
-            src="/logo.png"
-            alt="Orangy Carpels"
+            src="/logo.svg"
+            alt="Orangyy Carpels"
             className="w-12 h-12 object-contain mx-auto transition-transform hover:scale-105"
           />
           <div>
-            <h2 className="text-[20px] font-bold tracking-tight text-studio-text">Sign in to Orangy Carpels</h2>
+            <h2 className="text-[20px] font-bold tracking-tight text-studio-text">Sign in to Orangyy Carpels</h2>
             <p className="text-[12px] text-studio-muted">Studio operations, timesheets & resource billing</p>
           </div>
         </div>

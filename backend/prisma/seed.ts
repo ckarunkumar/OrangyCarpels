@@ -16,6 +16,7 @@ async function main() {
   // 1. Create employees
   const arun = await prisma.employee.create({
     data: {
+      employeeId: 'AODE0001',
       fullName: 'ckArunkumar',
       designation: 'Studio Director',
       department: 'Leadership',
@@ -41,6 +42,7 @@ async function main() {
 
   const navaneetha = await prisma.employee.create({
     data: {
+      employeeId: 'AODE0002',
       fullName: 'Navaneetha S',
       designation: 'Senior Project Manager',
       department: 'Project Management',
@@ -66,6 +68,7 @@ async function main() {
 
   const alex = await prisma.employee.create({
     data: {
+      employeeId: 'AODE0003',
       fullName: 'Alex Carter',
       designation: 'Senior Product Designer',
       department: 'Product Design',
@@ -91,6 +94,7 @@ async function main() {
 
   const emma = await prisma.employee.create({
     data: {
+      employeeId: 'AODE0004',
       fullName: 'Emma Watson',
       designation: 'UX Researcher',
       department: 'User Research',
@@ -118,14 +122,16 @@ async function main() {
   // 2. Create clients & projects
   await prisma.client.create({
     data: {
-      id: 'CL-001',
+      id: 'AODC0001',
       name: 'Acme Corp',
+      displayName: 'Acme Corp',
+      legalName: 'Acme Corporation Inc.',
       billingCurrency: 'USD ($)',
       status: 'Active',
       projects: {
         create: [
-          { id: 'PRJ-101', name: 'Website Redesign', billingType: 'Hourly Rate (T&M)', rate: '$150/hr', budgetHours: 100, loggedHours: 78, status: 'Active' },
-          { id: 'PRJ-102', name: 'CMS Integration', billingType: 'Project Cost (Fixed)', rate: '$12,000', budgetHours: 80, loggedHours: 15, status: 'Active' },
+          { id: 'AODP0001', name: 'Website Redesign', billingType: 'T&M', rate: '$150/hr', budgetHours: 100, loggedHours: 78, status: 'Active', managerId: 'AODE0002', managerName: 'Navaneetha S', assignedEmployees: 'AODE0001,AODE0003,AODE0004' },
+          { id: 'AODP0002', name: 'CMS Integration', billingType: 'Fixed PC', rate: '$12,000', budgetHours: 80, loggedHours: 15, status: 'Active', managerId: 'AODE0002', managerName: 'Navaneetha S', assignedEmployees: 'AODE0001,AODE0004' },
         ],
       },
     },
@@ -133,13 +139,15 @@ async function main() {
 
   await prisma.client.create({
     data: {
-      id: 'CL-002',
+      id: 'AODC0002',
       name: 'Hooli Inc',
+      displayName: 'Hooli Inc',
+      legalName: 'Hooli Technologies Pvt Ltd',
       billingCurrency: 'INR (₹)',
       status: 'Active',
       projects: {
         create: [
-          { id: 'PRJ-201', name: 'Mobile App V2', billingType: 'Monthly Resource Cost (Fixed)', rate: '₹3,50,000/mo', budgetHours: 200, loggedHours: 195, status: 'Active' },
+          { id: 'AODP0003', name: 'Mobile App V2', billingType: 'Fixed RC', rate: '₹3,50,000/mo', budgetHours: 200, loggedHours: 195, status: 'Active', managerId: 'AODE0002', managerName: 'Navaneetha S', assignedEmployees: 'AODE0003,AODE0004' },
         ],
       },
     },
@@ -159,6 +167,22 @@ async function main() {
         ],
       },
     },
+  });
+
+  // 4. Create detailed daily entries matching the mockup
+  await prisma.dailyTimesheetEntry.createMany({
+    data: [
+      { sno: '01', date: '2026-08-01', dayLabel: 'Aug 01, Mon', description: 'Designed a clean and engaging landing screen to create a strong first impression. Focused on clear visual hierarchy, intuitive navigation, and responsive layout.', task: 'Ideation', hours: 3, projectId: 'AODP0001', employeeId: 'AODE0001', weekStart: '2026-08-01', status: 'Draft' },
+      { sno: '02', date: '2026-08-02', dayLabel: 'Aug 02, Tue', description: 'User Flow Mapping & Key Journeys', task: 'Design', hours: 2, projectId: 'AODP0001', employeeId: 'AODE0001', weekStart: '2026-08-01', status: 'Draft' },
+      { sno: '03', date: '2026-08-03', dayLabel: 'Aug 03, Wed', description: 'Wireframing core dashboards', task: 'AI Design', hours: 4, projectId: 'AODP0001', employeeId: 'AODE0001', weekStart: '2026-08-01', status: 'Draft' },
+      { sno: '04', date: '2026-08-04', dayLabel: 'Aug 04, Thu', description: 'Prototype Testing & Animation transitions', task: 'Ideation', hours: 5, projectId: 'AODP0001', employeeId: 'AODE0001', weekStart: '2026-08-01', status: 'Draft' },
+      { sno: '05', date: '2026-08-05', dayLabel: 'Aug 05, Fri', description: 'UI Kit Development & Design Tokens', task: 'Ideation', hours: 3, projectId: 'AODP0001', employeeId: 'AODE0001', weekStart: '2026-08-01', status: 'Draft' },
+      { sno: '06', date: '2026-08-06', dayLabel: 'Aug 06, Sat', description: '', task: '', hours: 0, projectId: 'AODP0001', employeeId: 'AODE0001', weekStart: '2026-08-01', status: 'Draft' },
+      { sno: '07', date: '2026-08-07', dayLabel: 'Aug 07, Sun', description: '', task: '', hours: 0, projectId: 'AODP0001', employeeId: 'AODE0001', weekStart: '2026-08-01', status: 'Draft' },
+      { sno: '08', date: '2026-08-08', dayLabel: 'Aug 08, Sat', description: 'Prototype Testing with PM review', task: 'Validation', hours: 2, projectId: 'AODP0001', employeeId: 'AODE0001', weekStart: '2026-08-01', status: 'Draft' },
+      { sno: '09', date: '2026-08-09', dayLabel: 'Aug 09, Sun', description: 'User Feedback Session Notes synthesis', task: 'Analysis', hours: 4, projectId: 'AODP0001', employeeId: 'AODE0001', weekStart: '2026-08-01', status: 'Draft' },
+      { sno: '10', date: '2026-08-10', dayLabel: 'Aug 10, Mon', description: 'Final Design Review with Director', task: 'Approval', hours: 1, projectId: 'AODP0001', employeeId: 'AODE0001', weekStart: '2026-08-01', status: 'Draft' },
+    ],
   });
 
   console.log(`Seeded Timesheet: ${ts.weekStart}`);

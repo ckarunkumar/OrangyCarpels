@@ -45,7 +45,7 @@ export default function EmployeeDetailDrawer({ open, employee, isAdmin, onClose,
             <div className="text-center mt-3 pb-1">
               <h4 className="text-[15px] font-bold text-studio-text">{employee.fullName}</h4>
               <p className="text-[11px] text-studio-muted mt-0.5">{employee.designation} • {employee.department}</p>
-              <p className="text-[10px] font-mono text-studio-muted/80 mt-1">{employee.employeeId || `EMP-00${employee.id}`}</p>
+              <p className="text-[10px] font-mono text-studio-muted/80 mt-1">{employee.employeeId || `AODE${String(employee.id).padStart(4, '0')}`}</p>
             </div>
           </div>
         </div>
@@ -59,7 +59,7 @@ export default function EmployeeDetailDrawer({ open, employee, isAdmin, onClose,
         <div className="flex items-center justify-between px-6 py-4 border-b border-studio-border shrink-0">
           <div>
             <h3 className="text-[15px] font-bold text-studio-text">Employee Profile</h3>
-            <p className="text-[11px] text-studio-muted font-mono">{employee.employeeId || `EMP-00${employee.id}`}</p>
+            <p className="text-[11px] text-studio-muted font-mono">{employee.employeeId || `AODE${String(employee.id).padStart(4, '0')}`}</p>
           </div>
           <div className="flex items-center gap-1.5">
             {isAdmin && (
@@ -94,8 +94,8 @@ export default function EmployeeDetailDrawer({ open, employee, isAdmin, onClose,
               <h3 className="text-[15px] font-bold text-studio-text truncate">{employee.fullName}</h3>
               <p className="text-[11px] text-studio-muted truncate">{employee.designation} • {employee.department}</p>
               <div className="flex items-center gap-1.5 mt-1">
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-studio-sidebar border border-studio-border text-studio-text">{employee.employeeId || `EMP-00${employee.id}`}</span>
-                <span className={`text-[9px] font-semibold px-2 py-0.2 rounded-full border ${employee.role === 'Super Admin' ? 'bg-purple-50 text-purple-700 border-purple-200' : employee.role === 'Project Manager' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>{employee.role}</span>
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-studio-sidebar border border-studio-border text-studio-text">{employee.employeeId || `AODE${String(employee.id).padStart(4, '0')}`}</span>
+                <span className="text-[9px] font-semibold px-2 py-0.2 rounded-full border bg-orange-50 text-brand-orange border-brand-orange/30">{employee.designation || 'Team Member'}</span>
                 <span className={`text-[9px] font-semibold px-2 py-0.2 rounded-full border ${employee.status === 'Active' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>{employee.status}</span>
               </div>
             </div>

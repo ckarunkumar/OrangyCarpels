@@ -5,6 +5,8 @@ import * as dotenv from 'dotenv';
 import timesheetRoutes from './api/routes/timesheets';
 import registryRoutes from './api/routes/registries';
 import authRoutes from './api/routes/auth';
+import billingRoutes from './api/routes/billing';
+import notificationRoutes from './api/routes/notifications';
 import { AuthService, UserSession } from './services/authService';
 
 declare module 'fastify' {
@@ -57,13 +59,15 @@ const start = async () => {
 
     // Health check endpoint
     fastify.get('/api/health', async () => {
-      return { status: 'OK', message: 'Orangy Carpels Backend API is healthy' };
+      return { status: 'OK', message: 'Orangyy Carpels Backend API is healthy' };
     });
 
-    // Register timesheet, registry, and auth API routes
+    // Register timesheet, registry, billing, and auth API routes
     await fastify.register(authRoutes, { prefix: '/api' });
     await fastify.register(timesheetRoutes, { prefix: '/api' });
     await fastify.register(registryRoutes, { prefix: '/api' });
+    await fastify.register(billingRoutes, { prefix: '/api' });
+    await fastify.register(notificationRoutes, { prefix: '/api' });
 
     const port = Number(process.env.PORT) || 5001;
     const host = process.env.HOST || '0.0.0.0';

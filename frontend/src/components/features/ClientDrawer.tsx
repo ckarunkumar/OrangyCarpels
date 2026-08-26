@@ -4,6 +4,8 @@ import { X } from 'lucide-react';
 export interface Client {
   id: string;
   name: string;
+  legalName?: string;
+  displayName?: string;
   contactPerson?: string;
   email?: string;
   phone?: string;
@@ -12,68 +14,69 @@ export interface Client {
   accountsPhone?: string;
   address?: string;
   country?: string;
+  cinNumber?: string;
   gstNumber?: string;
   panNumber?: string;
   msmeNumber?: string;
   billingCurrency: string;
-  defaultBillingType?: 'Hourly Rate (T&M)' | 'Monthly Resource Cost (Fixed)' | 'Project Cost (Fixed)';
+  defaultBillingType?: 'T&M' | 'Fixed RC' | 'Fixed PC' | 'Hourly Rate (T&M)' | 'Monthly Res Cost (Fixed)' | 'Project Cost (Fixed)' | string;
   dueTime?: '15 days' | '30 days' | '45 days' | '60 days' | '90 days' | string;
   status: 'Active' | 'Inactive';
-  projects?: Array<{
-    id: string; name: string; billingType: string; rate: string;
-    budgetHours: number; loggedHours: number; status: 'Active' | 'Inactive';
-  }>;
+  projects?: Array<{ id: string; name: string; billingType: string; rate: string; budgetHours: number; loggedHours: number; status: 'Active' | 'Inactive'; }>;
 }
 
 const CURRENCIES = ['USD ($)', 'INR (₹)', 'EUR (€)', 'GBP (£)', 'SGD ($)', 'AUD ($)', 'CAD ($)', 'AED (د.إ)', 'JPY (¥)', 'CHF (Fr.)'];
-const BILLING_TYPES = ['Hourly Rate (T&M)', 'Monthly Resource Cost (Fixed)', 'Project Cost (Fixed)'] as const;
+const BILLING_TYPES = ['T&M', 'Fixed RC', 'Fixed PC'] as const;
 const DUE_TIMES = ['15 days', '30 days', '45 days', '60 days', '90 days'] as const;
 
 type FormState = {
-  clientId: string; name: string; contactPerson: string; email: string; phone: string;
+  clientId: string; name: string; legalName: string; displayName: string;
+  contactPerson: string; email: string; phone: string;
   accountsPerson: string; accountsEmail: string; accountsPhone: string; address: string;
-  country: string; gstNumber: string; panNumber: string; msmeNumber: string;
+  country: string; cinNumber: string; gstNumber: string; panNumber: string; msmeNumber: string;
   billingCurrency: string; defaultBillingType: Client['defaultBillingType'];
   dueTime: string; status: 'Active' | 'Inactive';
 };
 
 const EMPTY_FORM: FormState = {
-  clientId: '', name: '', contactPerson: '', email: '', phone: '',
+  clientId: '', name: '', legalName: '', displayName: '', contactPerson: '', email: '', phone: '',
   accountsPerson: '', accountsEmail: '', accountsPhone: '', address: '',
-  country: 'India', gstNumber: '', panNumber: '', msmeNumber: '',
-  billingCurrency: 'USD ($)', defaultBillingType: 'Hourly Rate (T&M)',
-  dueTime: '30 days', status: 'Active',
+  country: 'India', cinNumber: '', gstNumber: '', panNumber: '', msmeNumber: '',
+  billingCurrency: 'USD ($)', defaultBillingType: 'T&M', dueTime: '30 days', status: 'Active',
 };
 
 interface ClientDrawerProps {
-  open: boolean; mode: 'add' | 'edit'; client: Client | null;
-  onClose: () => void; onSaved: () => void;
+  open: boolean;
+  mode: 'add' | 'edit';
+  client: Client | null;
+  onClose: () => void;
+  onSaved: () => void;
 }
 
 export default function ClientDrawer({ open, mode, client, onClose, onSaved }: ClientDrawerProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const nameInputRef = useRef<HTMLInputElement>(null);
+  const legalNameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
       setError(null);
       if (mode === 'edit' && client) {
         setForm({
-          clientId: client.id, name: client.name, contactPerson: client.contactPerson || '',
-          email: client.email || '', phone: client.phone || '', accountsPerson: client.accountsPerson || '',
-          accountsEmail: client.accountsEmail || '', accountsPhone: client.accountsPhone || '',
-          address: client.address || '', country: client.country || 'India', gstNumber: client.gstNumber || '',
-          panNumber: client.panNumber || '', msmeNumber: client.msmeNumber || '',
-          billingCurrency: client.billingCurrency || 'USD ($)',
-          defaultBillingType: client.defaultBillingType || 'Hourly Rate (T&M)',
+          clientId: client.id, name: client.name,
+          legalName: client.legalName || client.name, displayName: client.displayName || client.name,
+          contactPerson: client.contactPerson || '', email: client.email || '', phone: client.phone || '',
+          accountsPerson: client.accountsPerson || '', accountsEmail: client.accountsEmail || '',
+          accountsPhone: client.accountsPhone || '', address: client.address || '', country: client.country || 'India',
+          cinNumber: client.cinNumber || '', gstNumber: client.gstNumber || '', panNumber: client.panNumber || '', msmeNumber: client.msmeNumber || '',
+          billingCurrency: client.billingCurrency || 'USD ($)', defaultBillingType: client.defaultBillingType || 'T&M',
           dueTime: client.dueTime || '30 days', status: client.status,
         });
       } else {
         setForm(EMPTY_FORM);
       }
-      setTimeout(() => nameInputRef.current?.focus(), 150);
+      setTimeout(() => legalNameRef.current?.focus(), 150);
     }
   }, [open, mode, client]);
 
@@ -83,36 +86,27 @@ export default function ClientDrawer({ open, mode, client, onClose, onSaved }: C
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) { setError('Company name is required.'); return; }
+    const legalName = form.legalName.trim();
+    const displayName = form.displayName.trim();
+    if (!legalName) { setError('Company Legal Name is required.'); return; }
+    if (!displayName) { setError('Company Display Name is required.'); return; }
     setSaving(true); setError(null);
 
     const payload = {
       ...(form.clientId.trim() && { id: form.clientId.trim().toUpperCase() }),
-      name: form.name.trim(),
-      contactPerson: form.contactPerson.trim(),
-      email: form.email.trim(),
-      phone: form.phone.trim(),
-      accountsPerson: form.accountsPerson.trim(),
-      accountsEmail: form.accountsEmail.trim(),
-      accountsPhone: form.accountsPhone.trim(),
-      address: form.address.trim(),
-      country: form.country.trim(),
-      gstNumber: form.gstNumber.trim().toUpperCase(),
-      panNumber: form.panNumber.trim().toUpperCase(),
-      msmeNumber: form.msmeNumber.trim().toUpperCase(),
-      billingCurrency: form.billingCurrency,
-      defaultBillingType: form.defaultBillingType,
-      dueTime: form.dueTime,
-      status: form.status,
+      name: displayName, legalName, displayName,
+      contactPerson: form.contactPerson.trim(), email: form.email.trim(), phone: form.phone.trim(),
+      accountsPerson: form.accountsPerson.trim(), accountsEmail: form.accountsEmail.trim(),
+      accountsPhone: form.accountsPhone.trim(), address: form.address.trim(), country: form.country.trim(),
+      cinNumber: form.cinNumber.trim().toUpperCase(),
+      gstNumber: form.gstNumber.trim().toUpperCase(), panNumber: form.panNumber.trim().toUpperCase(),
+      msmeNumber: form.msmeNumber.trim().toUpperCase(), billingCurrency: form.billingCurrency,
+      defaultBillingType: form.defaultBillingType, dueTime: form.dueTime, status: form.status,
     };
 
     try {
       const url = mode === 'edit' ? `/api/clients/${client!.id}` : '/api/clients';
-      const res = await fetch(url, {
-        method: mode === 'edit' ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(url, { method: mode === 'edit' ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save client.');
       onSaved(); onClose();
@@ -130,9 +124,9 @@ export default function ClientDrawer({ open, mode, client, onClose, onSaved }: C
         <div className="flex items-center justify-between px-7 py-3.5 border-b border-studio-border shrink-0">
           <div>
             <h3 className="text-[16px] font-semibold text-studio-text">{mode === 'edit' ? 'Edit Client' : 'New Client'}</h3>
-            <p className="text-[11px] text-studio-muted mt-0.5">{mode === 'edit' ? `Client: ${client?.name}` : 'Fill in company, contacts & billing details'}</p>
+            <p className="text-[11px] text-studio-muted mt-0.5">{mode === 'edit' ? `Client: ${client?.displayName || client?.name}` : 'Fill in company legal & display names, contacts & billing'}</p>
           </div>
-          <button type="button" onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-studio-muted hover:bg-studio-sidebar transition-colors"><X className="w-4 h-4" /></button>
+          <button type="button" onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-studio-muted hover:bg-studio-sidebar transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
         </div>
 
         <form id="client-drawer-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-7 py-5 space-y-5">
@@ -142,10 +136,12 @@ export default function ClientDrawer({ open, mode, client, onClose, onSaved }: C
           <div className="space-y-2.5">
             <h4 className={headingCls}>Company Info</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3">
-              <div><label className={labelCls}>Client ID</label><input type="text" placeholder="CL-001" disabled={mode === 'edit'} value={form.clientId} onChange={set('clientId')} className={`${inputCls} font-mono ${mode === 'edit' ? 'bg-studio-sidebar opacity-75' : ''}`} /></div>
-              <div><label className={labelCls}>Company Name *</label><input ref={nameInputRef} type="text" placeholder="e.g. Acme Studio" value={form.name} onChange={set('name')} className={inputCls} /></div>
+              <div><label className="block text-[11px] font-bold text-brand-orange mb-1">Client ID *</label><input type="text" placeholder="AODC0001" disabled={mode === 'edit'} value={form.clientId} onChange={set('clientId')} className={`${inputCls} font-mono ${mode === 'edit' ? 'bg-studio-sidebar opacity-75' : ''}`} /></div>
+              <div><label className={labelCls}>Company Legal Name *</label><input ref={legalNameRef} type="text" placeholder="e.g. Acme Corporation Pvt Ltd" value={form.legalName} onChange={set('legalName')} className={inputCls} /></div>
+              <div><label className={labelCls}>Company Display Name *</label><input type="text" placeholder="e.g. Acme" value={form.displayName} onChange={set('displayName')} className={inputCls} /></div>
               <div><label className={labelCls}>Office Address</label><input type="text" placeholder="Street, City, PIN" value={form.address} onChange={set('address')} className={inputCls} /></div>
               <div><label className={labelCls}>Country</label><input type="text" placeholder="India" value={form.country} onChange={set('country')} className={inputCls} /></div>
+              <div><label className={labelCls}>CIN No Or Inc No</label><input type="text" placeholder="U72200DL2021PTC123456" value={form.cinNumber} onChange={set('cinNumber')} className={`${inputCls} font-mono uppercase`} /></div>
               <div><label className={labelCls}>GST Number</label><input type="text" placeholder="22AAAAA0000A1Z5" maxLength={15} value={form.gstNumber} onChange={set('gstNumber')} className={`${inputCls} font-mono uppercase`} /></div>
               <div><label className={labelCls}>PAN Number</label><input type="text" placeholder="AAACA0000A" maxLength={10} value={form.panNumber} onChange={set('panNumber')} className={`${inputCls} font-mono uppercase`} /></div>
               <div><label className={labelCls}>MSME Number</label><input type="text" placeholder="UDYAM-XX-00-0000000" value={form.msmeNumber} onChange={set('msmeNumber')} className={`${inputCls} font-mono uppercase`} /></div>
@@ -185,8 +181,8 @@ export default function ClientDrawer({ open, mode, client, onClose, onSaved }: C
         </form>
 
         <div className="shrink-0 px-7 py-3.5 border-t border-studio-border flex items-center justify-end gap-3 bg-white">
-          <button type="button" onClick={onClose} className="px-4 py-1.5 text-[12px] font-medium text-studio-muted hover:text-studio-text transition-colors">Cancel</button>
-          <button type="submit" form="client-drawer-form" disabled={saving} className="px-4 py-1.5 text-[12px] font-semibold text-white bg-brand-orange rounded hover:bg-opacity-95 transition-colors disabled:opacity-50">{saving ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Create Client'}</button>
+          <button type="button" onClick={onClose} className="px-4 py-1.5 text-[12px] font-medium text-studio-muted hover:text-studio-text transition-colors cursor-pointer">Cancel</button>
+          <button type="submit" form="client-drawer-form" disabled={saving} className="px-4 py-1.5 text-[12px] font-semibold text-white bg-brand-orange rounded hover:bg-opacity-95 transition-colors disabled:opacity-50 cursor-pointer">{saving ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Create Client'}</button>
         </div>
       </div>
     </>

@@ -99,10 +99,10 @@ const registryRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
 
   // POST create project under client
   fastify.post('/projects', { schema: createProjectSchema }, async (request, reply) => {
-    const { clientId, name, billingType, rate, budgetHours } = request.body as any;
+    const { id, clientId, name, billingType, rate, budgetHours, startDate, endDate, managerId, managerName, assignedEmployees } = request.body as any;
     const role = request.user!.role;
     try {
-      const newProj = await RegistryService.createProject(role, clientId, name, billingType, rate, budgetHours);
+      const newProj = await RegistryService.createProject(role, clientId, name, billingType, rate, budgetHours, startDate, endDate, id, managerId, managerName, assignedEmployees);
       return newProj;
     } catch (err: any) {
       return reply.status(403).send({ error: err.message });
