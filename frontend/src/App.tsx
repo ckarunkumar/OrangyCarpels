@@ -8,6 +8,9 @@ import TimesheetsView from './components/features/TimesheetsView';
 import EmployeesView from './components/features/EmployeesView';
 import ClientsView from './components/features/ClientsView';
 import ProjectsView from './components/features/ProjectsView';
+import ReportsView from './components/features/ReportsView';
+import LeavesView from './components/features/LeavesView';
+import GeneralSettingsView from './components/features/GeneralSettingsView';
 import { ShieldAlert } from 'lucide-react';
 
 function AppContent() {
@@ -54,6 +57,25 @@ function AppContent() {
     return children;
   };
 
+  const SuperAdminRoute = ({ children }: ProtectedRouteProps) => {
+    if (role !== 'Super Admin') {
+      return (
+        <div className="max-w-md mx-auto mt-12 bg-white border border-studio-border rounded-lg p-6 text-center space-y-4">
+          <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto border border-red-200">
+            <ShieldAlert className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-[14px] font-bold text-studio-text">Super Admin Only</h3>
+            <p className="text-[12px] text-studio-muted mt-1 leading-relaxed">
+              General Settings can only be configured by a Super Admin.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return children;
+  };
+
   return (
     <Router>
       <Layout>
@@ -85,6 +107,20 @@ function AppContent() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/reports"
+              element={
+                <ProtectedRoute>
+                  <ReportsView activeRole={role} />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/leaves" element={<LeavesView activeRole={role} />} />
+            <Route path="/settings" element={<SuperAdminRoute><GeneralSettingsView /></SuperAdminRoute>} />
+            <Route path="/settings/studio" element={<SuperAdminRoute><GeneralSettingsView /></SuperAdminRoute>} />
+            <Route path="/settings/services" element={<SuperAdminRoute><GeneralSettingsView /></SuperAdminRoute>} />
+            <Route path="/settings/leaves" element={<SuperAdminRoute><GeneralSettingsView /></SuperAdminRoute>} />
+            <Route path="/settings/bl-sl" element={<SuperAdminRoute><GeneralSettingsView /></SuperAdminRoute>} />
             <Route path="/billing" element={<Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

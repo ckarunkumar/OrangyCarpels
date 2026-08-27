@@ -27,6 +27,8 @@ model Employee {
   panNumber        String?      @default("")
   costRate         String       @default("₹0/hr")
   capacity         String       @default("40 hrs/week")
+  joiningDate      String?      @default("")
+  relievingDate    String?      @default("")
   status           String       @default("Active") // Active, Inactive
   role             String       @default("Employee") // Super Admin, Project Manager, Employee
   location         String       @default("Delhi, India")
@@ -83,6 +85,8 @@ model Project {
   billingType       String // T&M, Fixed RC, Fixed PC
   rate              String
   currency          String                 @default("USD ($)")
+  businessLine      String?                @default("")
+  service           String?                @default("")
   startDate         String?                @default("")
   endDate           String?                @default("")
   budgetHours       Int                    @default(0)
@@ -96,6 +100,22 @@ model Project {
   rateVersions      ProjectRateVersion[]
   monthlyBudgets    ProjectMonthlyBudget[]
   dailyEntries      DailyTimesheetEntry[]
+}
+
+model BusinessLine {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?   @default("")
+  status      String    @default("Active")
+  services    Service[]
+}
+
+model Service {
+  id             Int           @id @default(autoincrement())
+  name           String
+  businessLineId Int?
+  businessLine   BusinessLine? @relation(fields: [businessLineId], references: [id], onDelete: Cascade)
+  status         String        @default("Active")
 }
 
 model ProjectMonthlyBudget {
@@ -190,3 +210,83 @@ model Notification {
   readAt    DateTime?
   createdAt DateTime  @default(now())
 }
+
+model LeaveTypeConfig {
+  id              Int      @id @default(autoincrement())
+  code            String   // 'CL', 'SL', 'EL', 'WFH', 'COMP_OFF', 'OH'
+  name            String
+  annualQuota     Float    @default(12)
+  monthlyAccrual  Float    @default(1.0)
+  allowHalfDay    Boolean  @default(true)
+  maxCarryForward Float    @default(0)
+  isPaid          Boolean  @default(true)
+  status          String   @default("Active")
+  year            Int      @default(2026)
+
+  @@unique([code, year])
+}
+
+model Holiday {
+  id          Int      @id @default(autoincrement())
+  date        String   // '2026-01-26'
+  name        String   // 'Republic Day' / 'Maha Shivratri'
+  type        String   @default("Mandatory") // 'Mandatory' or 'Optional'
+  year        Int      @default(2026)
+  isPublished Boolean  @default(true)
+}
+
+model EmployeeLeaveBalance {
+  id                    Int      @id @default(autoincrement())
+  employeeId            String
+  year                  Int      @default(2026)
+  casualQuota           Float    @default(12)
+  casualUsed            Float    @default(0)
+  sickQuota             Float    @default(12)
+  sickUsed              Float    @default(0)
+  earnedQuota           Float    @default(15)
+  earnedUsed            Float    @default(0)
+  compOffBalance        Float    @default(0)
+  optionalHolidaysQuota Int      @default(2)
+  optionalHolidaysUsed  Int      @default(0)
+  wfhMonthlyLimit       Int      @default(2)
+  wfhUsedThisMonth      Int      @default(0)
+  lastAccruedMonth      String?
+
+  @@unique([employeeId, year])
+}
+
+model LeaveRequest {
+  id              Int      @id @default(autoincrement())
+  employeeId      String
+  employeeName    String
+  leaveType       String   // 'Casual Leave', 'Sick Leave', 'Earned Leave', 'Comp-off', 'Work From Home', 'Optional Holiday'
+  startDate       String
+  endDate         String
+  isHalfDay       Boolean  @default(false)
+  halfDaySession  String?  // 'First Half' or 'Second Half'
+  daysCount       Float    // 0.5, 1.0, 2.0...
+  reason          String
+  status          String   @default("Pending") // 'Pending', 'Approved', 'Rejected', 'Cancelled'
+  approverId      String?
+  approverName    String?
+  pmApproval      String?  @default("Pending")
+  saApproval      String?  @default("Pending")
+  rejectionReason String?
+  appliedAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+}
+
+model CompOffRequest {
+  id           Int      @id @default(autoincrement())
+  employeeId   String
+  employeeName String
+  workedDate   String
+  hoursWorked  Float
+  daysCredit   Float    @default(1.0) // 0.5 or 1.0
+  reason       String
+  status       String   @default("Pending_PM") // 'Pending_PM', 'Pending_SA', 'Approved', 'Rejected'
+  pmApproval   String?  @default("Pending")
+  saApproval   String?  @default("Pending")
+  createdAt    DateTime @default(now())
+}
+

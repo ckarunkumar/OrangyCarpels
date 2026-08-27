@@ -9,18 +9,15 @@ import Breadcrumbs from '../ui/Breadcrumbs';
 const CURRENCIES = ['USD ($)', 'INR (₹)', 'EUR (€)', 'GBP (£)', 'SGD ($)', 'AUD ($)', 'CAD ($)', 'AED (د.إ)', 'JPY (¥)', 'CHF (Fr.)'];
 
 interface ProjectFormViewProps {
-  mode: 'add' | 'edit';
-  project: Project | null;
-  clients: Client[];
-  employees?: Employee[];
-  activeRole?: UserRole;
-  onBack: () => void;
-  onSaved: (msg?: string) => void;
+  mode: 'add' | 'edit'; project: Project | null; clients: Client[]; employees?: Employee[];
+  activeRole?: UserRole; onBack: () => void; onSaved: (msg?: string) => void;
 }
 
 export default function ProjectFormView({ mode, project, clients, employees = [], activeRole, onBack, onSaved }: ProjectFormViewProps) {
   const isSA = activeRole === 'Super Admin';
   const [projectId, setProjectId] = useState(''); const [name, setName] = useState(''); const [clientId, setClientId] = useState('');
+  const [selectedBLs, setSelectedBLs] = useState<string[]>([]);
+  const [blInventory, setBlInventory] = useState<Array<{ id: number; name: string; services: Array<{ id: number; name: string }> }>>([]);
   const [billingType, setBillingType] = useState<string>('T&M'); const [rateAmount, setRateAmount] = useState('50');
   const [currency, setCurrency] = useState('USD ($)'); const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(''); const [budgetHours, setBudgetHours] = useState('100');
@@ -29,29 +26,23 @@ export default function ProjectFormView({ mode, project, clients, employees = []
   const [saving, setSaving] = useState(false); const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const normalizeBType = (bt?: string) => {
-    if (!bt || bt === 'Hourly Rate (T&M)' || bt === 'T&M') return 'T&M';
-    if (bt.includes('Monthly') || bt === 'Fixed RC') return 'Fixed RC';
-    return bt.includes('Project') || bt === 'Fixed PC' ? 'Fixed PC' : bt;
-  };
+  const normalizeBType = (bt?: string) => (!bt || bt === 'Hourly Rate (T&M)' || bt === 'T&M') ? 'T&M' : bt?.includes('Monthly') || bt === 'Fixed RC' ? 'Fixed RC' : 'Fixed PC';
+  useEffect(() => { fetch('/api/settings/business-lines').then((r) => r.json()).then((d) => { if (Array.isArray(d)) setBlInventory(d); }).catch(() => {}); }, []);
 
   useEffect(() => {
     setError(null);
     if (mode === 'edit' && project) {
       setProjectId(project.id); setName(project.name); setClientId(project.clientId);
+      setSelectedBLs(project.businessLine ? project.businessLine.split(',').map((s) => s.trim()).filter(Boolean) : []);
       setBillingType(normalizeBType(project.billingType));
       const parsed = parseFloat(project.rate.replace(/[^0-9.]/g, ''));
-      setRateAmount(isNaN(parsed) ? '50' : String(parsed));
-      setCurrency(project.currency || project.clientCurrency || 'USD ($)');
-      setStartDate(project.startDate || new Date().toISOString().split('T')[0]);
-      setEndDate(project.endDate || ''); setBudgetHours(String(project.budgetHours || 100));
-      setStatus(project.status); setManagerId(project.managerId || '');
-      setAssignedEmployees(project.assignedEmployees || []);
+      setRateAmount(isNaN(parsed) ? '50' : String(parsed)); setCurrency(project.currency || project.clientCurrency || 'USD ($)');
+      setStartDate(project.startDate || new Date().toISOString().split('T')[0]); setEndDate(project.endDate || ''); setBudgetHours(String(project.budgetHours || 100));
+      setStatus(project.status); setManagerId(project.managerId || ''); setAssignedEmployees(project.assignedEmployees || []);
     } else {
       const initC = clients[0];
-      setProjectId(''); setName(''); setClientId(initC?.id || '');
-      setBillingType(normalizeBType(initC?.defaultBillingType));
-      setRateAmount('50'); setCurrency(initC?.billingCurrency || 'USD ($)');
+      setProjectId(''); setName(''); setClientId(initC?.id || ''); setSelectedBLs([]);
+      setBillingType(normalizeBType(initC?.defaultBillingType)); setRateAmount('50'); setCurrency(initC?.billingCurrency || 'USD ($)');
       setStartDate(new Date().toISOString().split('T')[0]); setEndDate(''); setBudgetHours('100'); setStatus('Active');
       const defaultPM = employees.find((e) => e.role === 'Project Manager' || e.role === 'Super Admin');
       setManagerId(defaultPM?.employeeId || ''); setAssignedEmployees([]);
@@ -59,10 +50,10 @@ export default function ProjectFormView({ mode, project, clients, employees = []
     setTimeout(() => inputRef.current?.focus(), 100);
   }, [mode, project, clients, employees]);
 
-  const handleClientChange = (newClientId: string) => {
-    setClientId(newClientId);
+  const handleClientChange = (newId: string) => {
+    setClientId(newId);
     if (mode === 'add') {
-      const sel = clients.find((c) => c.id === newClientId);
+      const sel = clients.find((c) => c.id === newId);
       if (sel?.defaultBillingType) setBillingType(normalizeBType(sel.defaultBillingType));
       if (sel?.billingCurrency) setCurrency(sel.billingCurrency);
     }
@@ -70,34 +61,33 @@ export default function ProjectFormView({ mode, project, clients, employees = []
 
   const removeEmployee = (empId: string) => setAssignedEmployees((prev) => prev.filter((id) => id !== empId));
   const addEmployee = (empId: string) => { if (empId && !assignedEmployees.includes(empId)) setAssignedEmployees((prev) => [...prev, empId]); };
-  const getRateLabel = () => (billingType === 'T&M' || billingType === 'Hourly Rate (T&M)') ? 'Hourly Cost *' : (billingType === 'Fixed RC' || billingType.includes('Monthly')) ? 'Monthly Cost *' : 'Project Cost *';
-
-  const isHourly = billingType === 'T&M' || billingType === 'Hourly Rate (T&M)';
+  const getRateLabel = () => (billingType === 'T&M') ? 'Hourly Cost *' : (billingType === 'Fixed RC') ? 'Monthly Cost *' : 'Project Cost *';
+  const isHourly = billingType === 'T&M';
   const pmEmployees = employees.filter((e) => e.status === 'Active' && (e.role === 'Project Manager' || e.role === 'Super Admin'));
   const staffEmployees = employees.filter((e) => e.status === 'Active' && e.role === 'Employee');
   const unassigned = staffEmployees.filter((e) => !assignedEmployees.includes(e.employeeId || String(e.id)));
+  const availableServices = (selectedBLs.length > 0 ? blInventory.filter((b) => selectedBLs.includes(b.name)) : []).flatMap((b) => b.services);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) { setError('Project name is required.'); return; }
-    if (!clientId) { setError('Please select a client.'); return; }
+    if (!name.trim() || !clientId) { setError('Project name and Client are required.'); return; }
     const amount = Number(rateAmount);
     if (isNaN(amount) || amount < 0) { setError('Please enter a valid rate amount.'); return; }
     let hours = isHourly ? Number(budgetHours) : 0;
     if (isHourly && (!hours || hours <= 0)) { setError('Budget hours must be positive.'); return; }
     setSaving(true); setError(null);
     try {
-      const formattedRate = `${currency.replace(/\s*\(.*\)/, '')} ${amount.toLocaleString()}${isHourly ? '/hr' : billingType.includes('Monthly') ? '/mo' : ''}`;
+      const formattedRate = `${currency.replace(/\s*\(.*\)/, '')} ${amount.toLocaleString()}${isHourly ? '/hr' : billingType === 'Fixed RC' ? '/mo' : ''}`;
       const selectedPM = employees.find((e) => e.employeeId === managerId);
       const url = mode === 'edit' ? `/api/projects/${project!.id}` : '/api/projects';
-      const res = await fetch(url, {
-        method: mode === 'edit' ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...(projectId.trim() && { id: projectId.trim().toUpperCase() }),
-          clientId, name: name.trim(), billingType, rate: formattedRate, startDate, endDate, budgetHours: hours, status,
-          managerId, managerName: selectedPM?.fullName || '', assignedEmployees
-        }),
+      const mappedServices = availableServices.map((s) => s.name).join(', ');
+      const body = JSON.stringify({
+        ...(projectId.trim() && { id: projectId.trim().toUpperCase() }),
+        clientId, name: name.trim(), businessLine: selectedBLs.join(', '), service: mappedServices,
+        billingType, rate: formattedRate, startDate, endDate, budgetHours: hours, status,
+        managerId, managerName: selectedPM?.fullName || '', assignedEmployees
       });
+      const res = await fetch(url, { method: mode === 'edit' ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save project.');
       onSaved(mode === 'edit' ? `Project ${name} updated successfully.` : `Project ${name} created successfully.`);
@@ -111,82 +101,90 @@ export default function ProjectFormView({ mode, project, clients, employees = []
   return (
     <div className="w-full space-y-5 animate-in fade-in duration-200">
       <Breadcrumbs items={[{ label: 'Project Registry', onClick: onBack }, { label: mode === 'edit' ? `Edit Project (${project?.name || ''})` : 'New Project' }]} />
-      {/* Top Bar Navigation */}
       <div className="flex items-center justify-between border-b border-studio-border pb-3">
         <div className="flex items-center gap-3">
-          <button type="button" onClick={onBack} className="p-1.5 rounded-lg border border-studio-border bg-white hover:bg-studio-sidebar text-studio-text transition-colors cursor-pointer" title="Back to Project Registry"><ArrowLeft className="w-4 h-4" /></button>
-          <div>
-            <h2 className="text-[20px] font-bold tracking-tight text-studio-text">{mode === 'edit' ? `Edit Project (${project?.name})` : 'New Project'}</h2>
-          </div>
+          <button type="button" onClick={onBack} className="p-1.5 rounded-lg border border-studio-border bg-white hover:bg-studio-sidebar text-studio-text transition-colors cursor-pointer" title="Back"><ArrowLeft className="w-4 h-4" /></button>
+          <div><h2 className="text-[20px] font-bold tracking-tight text-studio-text">{mode === 'edit' ? `Edit Project (${project?.name})` : 'New Project'}</h2></div>
         </div>
         <div className="flex items-center gap-2.5">
-          <button type="button" onClick={onBack} className="px-4 py-2 border border-studio-border rounded-md text-[12px] font-semibold text-studio-text hover:bg-studio-sidebar transition-colors cursor-pointer">Cancel</button>
-          <button type="submit" form="project-full-form" disabled={saving} className="px-5 py-2 bg-brand-orange text-white rounded-md text-[12px] font-semibold hover:bg-opacity-95 shadow-sm transition-all disabled:opacity-50 cursor-pointer">{saving ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Create Project'}</button>
+          <button type="button" onClick={onBack} className="px-4 py-2 border border-studio-border rounded-md text-[12px] font-semibold text-studio-text hover:bg-studio-sidebar cursor-pointer">Cancel</button>
+          <button type="submit" form="project-full-form" disabled={saving} className="px-5 py-2 bg-brand-orange text-white rounded-md text-[12px] font-semibold hover:bg-opacity-95 shadow-sm disabled:opacity-50 cursor-pointer">{saving ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Create Project'}</button>
         </div>
       </div>
-
       {error && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-[12px] font-medium">{error}</div>}
 
       <form id="project-full-form" onSubmit={handleSubmit} className="bg-white border border-studio-border rounded-lg shadow-sm p-6 space-y-7">
         {/* 1. Project Information */}
         <div className="space-y-3">
-          <h3 className={sectionTitleCls}>1. Project Information & Billing</h3>
+          <h3 className={sectionTitleCls}>1. Project Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
             <div><label className="block text-[11px] font-bold text-brand-orange mb-1">Project ID *</label><input type="text" placeholder="AODP0001" disabled={mode === 'edit'} value={projectId} onChange={(e) => setProjectId(e.target.value)} className={`${inputCls} font-mono uppercase font-semibold ${mode === 'edit' ? 'bg-studio-sidebar opacity-75' : ''}`} /></div>
             <div><label className={labelCls}>Client *</label><select value={clientId} onChange={(e) => handleClientChange(e.target.value)} className={inputCls}>{clients.map((c) => (<option key={c.id} value={c.id}>{c.displayName || c.name}</option>))}</select></div>
             <div><label className={labelCls}>Project Name *</label><input ref={inputRef} type="text" placeholder="e.g. Design System V2" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} /></div>
 
             {isSA ? (
-              <div>
-                <label className="flex items-center gap-1 text-[11px] font-bold text-studio-text mb-1"><UserCheck className="w-3.5 h-3.5 text-brand-orange" /> Assign Project Manager (PM)</label>
-                <select value={managerId} onChange={(e) => setManagerId(e.target.value)} className={inputCls}>
-                  <option value="">-- Select PM --</option>
-                  {pmEmployees.map((emp) => (<option key={emp.id} value={emp.employeeId || String(emp.id)}>{emp.fullName} ({emp.role === 'Super Admin' ? 'Admin' : emp.designation || 'PM'})</option>))}
-                </select>
-              </div>
+              <div><label className="flex items-center gap-1 text-[11px] font-bold text-studio-text mb-1"><UserCheck className="w-3.5 h-3.5 text-brand-orange" /> Assign PM</label><select value={managerId} onChange={(e) => setManagerId(e.target.value)} className={inputCls}><option value="">-- Select PM --</option>{pmEmployees.map((emp) => (<option key={emp.id} value={emp.employeeId || String(emp.id)}>{emp.fullName}</option>))}</select></div>
             ) : (
               <div><label className={labelCls}>Status</label><select value={status} onChange={(e) => setStatus(e.target.value as any)} className={inputCls}><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
             )}
-
             <div><label className={labelCls}>Billing Type</label><select value={billingType} onChange={(e) => setBillingType(e.target.value)} className={inputCls}><option value="T&M">T&M</option><option value="Fixed RC">Fixed RC</option><option value="Fixed PC">Fixed PC</option></select></div>
             <div><label className={labelCls}>{getRateLabel()}</label><input type="number" placeholder="50" value={rateAmount} onChange={(e) => setRateAmount(e.target.value)} className={inputCls} /></div>
-
             <div><label className={labelCls}>Currency</label><select value={currency} onChange={(e) => setCurrency(e.target.value)} className={inputCls}>{CURRENCIES.map((c) => (<option key={c} value={c}>{c}</option>))}</select></div>
             <div><label className={labelCls}>Start Date *</label><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={inputCls} /></div>
             <div><label className={labelCls}>End Date</label><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={inputCls} /></div>
-
-            {isHourly && (<div><label className={labelCls}>Budget Hours *</label><input type="number" placeholder="100" value={budgetHours} onChange={(e) => setBudgetHours(e.target.value)} className={inputCls} /></div>)}
-            {isSA && (<div><label className={labelCls}>Status</label><select value={status} onChange={(e) => setStatus(e.target.value as any)} className={inputCls}><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>)}
+            {isHourly ? (
+              <div><label className={labelCls}>Budget Hours *</label><input type="number" placeholder="100" value={budgetHours} onChange={(e) => setBudgetHours(e.target.value)} className={inputCls} /></div>
+            ) : isSA ? (
+              <div><label className={labelCls}>Status</label><select value={status} onChange={(e) => setStatus(e.target.value as any)} className={inputCls}><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
+            ) : null}
           </div>
         </div>
 
-        {/* 2. Assign Team Members */}
-        <div className="space-y-3">
-          <h3 className={sectionTitleCls}>2. Team Member Allocation ({assignedEmployees.length} assigned)</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
+        {/* 2. BL & Resource */}
+        <div className="space-y-4">
+          <h3 className={sectionTitleCls}>2. BL & Resource</h3>
+          
+          {/* Line 1: Business Lines & Mapped Services */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
             <div>
-              <label className={labelCls}>Add Employee to Project</label>
-              <select value="" onChange={(e) => addEmployee(e.target.value)} className={inputCls}>
-                <option value="">+ Select Employee to Assign...</option>
-                {unassigned.map((emp) => (<option key={emp.id} value={emp.employeeId || String(emp.id)}>{emp.fullName} ({emp.designation})</option>))}
+              <label className={labelCls}>Business Lines ({selectedBLs.length})</label>
+              <select value="" onChange={(e) => { if (e.target.value && !selectedBLs.includes(e.target.value)) setSelectedBLs((p) => [...p, e.target.value]); }} className={inputCls}>
+                <option value="">+ Select Business Line...</option>
+                {blInventory.filter((bl) => !selectedBLs.includes(bl.name)).map((bl) => (<option key={bl.id} value={bl.name}>{bl.name}</option>))}
               </select>
+              {selectedBLs.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5 max-h-16 overflow-y-auto">
+                  {selectedBLs.map((bl) => (<span key={bl} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-medium bg-orange-50 text-brand-orange border border-orange-200"><span>{bl}</span><button type="button" onClick={() => setSelectedBLs((p) => p.filter((x) => x !== bl))} className="hover:text-red-600 cursor-pointer"><X className="w-2.5 h-2.5" /></button></span>))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className={labelCls}>Mapped Services ({availableServices.length})</label>
+              <div className="p-2 border border-studio-border/70 rounded-md bg-studio-sidebar/30 min-h-[38px] max-h-24 overflow-y-auto flex flex-wrap gap-1">
+                {availableServices.length > 0 ? (
+                  availableServices.map((svc) => (<span key={svc.id} className="inline-flex items-center px-2.5 py-0.5 rounded text-[10.5px] font-medium bg-blue-50 text-blue-700 border border-blue-200">{svc.name}</span>))
+                ) : (<span className="text-[11.5px] text-studio-muted italic p-0.5">Select Business Line to auto-map services</span>)}
+              </div>
             </div>
           </div>
-          <div className="space-y-1.5">
-            <label className={labelCls}>Assigned Team Members</label>
-            {assignedEmployees.length > 0 ? (
-              <div className="flex flex-wrap gap-2 p-3 bg-studio-sidebar/40 border border-studio-border rounded-lg min-h-[48px]">
+
+          {/* Line 2: Select Team Member & Assigned Members */}
+          <div className="space-y-3 pt-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+              <div>
+                <label className={labelCls}>Select Team Member ({assignedEmployees.length} assigned)</label>
+                <select value="" onChange={(e) => addEmployee(e.target.value)} className={inputCls}><option value="">+ Select Employee to Assign...</option>{unassigned.map((emp) => (<option key={emp.id} value={emp.employeeId || String(emp.id)}>{emp.fullName} ({emp.designation})</option>))}</select>
+              </div>
+            </div>
+            {assignedEmployees.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 p-3 bg-studio-sidebar/40 border border-studio-border rounded-lg">
                 {assignedEmployees.map((empCode) => {
                   const emp = staffEmployees.find((e) => (e.employeeId || String(e.id)) === empCode);
-                  return (
-                    <span key={empCode} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-medium bg-orange-50 text-brand-orange border border-brand-orange/30 shadow-2xs">
-                      <span>{emp ? emp.fullName : empCode}</span>
-                      <button type="button" onClick={() => removeEmployee(empCode)} className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-brand-orange/20 transition-colors cursor-pointer"><X className="w-3 h-3" /></button>
-                    </span>
-                  );
+                  return (<span key={empCode} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-medium bg-orange-50 text-brand-orange border border-brand-orange/30 shadow-2xs"><span>{emp ? emp.fullName : empCode}</span><button type="button" onClick={() => removeEmployee(empCode)} className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-brand-orange/20 cursor-pointer"><X className="w-3 h-3" /></button></span>);
                 })}
               </div>
-            ) : (<div className="text-[12px] text-studio-muted py-2.5 bg-studio-sidebar/20 border border-dashed border-studio-border rounded-lg px-3">No team members assigned yet. Use the dropdown above to allocate employees.</div>)}
+            )}
           </div>
         </div>
       </form>

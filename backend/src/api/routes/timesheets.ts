@@ -7,10 +7,11 @@ import {
 } from '../schemas/timesheetSchema';
 
 const timesheetRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
-  // GET projects summary for employee timesheet view
+  // GET projects summary for timesheet view
   fastify.get('/timesheets/projects-summary', async (request) => {
     const { month } = request.query as { month?: string };
-    const employeeId = request.user?.userId ? String(request.user.userId) : undefined;
+    const isReviewer = request.user?.role === 'Super Admin' || request.user?.role === 'Project Manager';
+    const employeeId = isReviewer ? undefined : (request.user?.userId ? String(request.user.userId) : undefined);
     return TimesheetService.getEmployeeProjectsSummary(month || '2026-08', employeeId);
   });
 
@@ -18,7 +19,8 @@ const timesheetRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => 
   fastify.get('/timesheets/daily-entries', async (request) => {
     const { projectId, month, weekStart } = request.query as { projectId: string; month?: string; weekStart?: string };
     const monthStr = month || (weekStart ? weekStart.slice(0, 7) : '2026-08');
-    const employeeId = request.user?.userId ? String(request.user.userId) : undefined;
+    const isReviewer = request.user?.role === 'Super Admin' || request.user?.role === 'Project Manager';
+    const employeeId = isReviewer ? undefined : (request.user?.userId ? String(request.user.userId) : undefined);
     return TimesheetService.getProjectDailyEntries(projectId, monthStr, employeeId);
   });
 
@@ -28,7 +30,8 @@ const timesheetRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => 
       projectId: string; month?: string; weekStart?: string; entries: any[];
     };
     const monthStr = month || (weekStart ? weekStart.slice(0, 7) : '2026-08');
-    const employeeId = request.user?.userId ? String(request.user.userId) : undefined;
+    const isReviewer = request.user?.role === 'Super Admin' || request.user?.role === 'Project Manager';
+    const employeeId = isReviewer ? undefined : (request.user?.userId ? String(request.user.userId) : undefined);
     try {
       return await TimesheetService.saveDailyEntries(projectId, monthStr, employeeId, request.user!.role, entries, 'Draft');
     } catch (err: any) {

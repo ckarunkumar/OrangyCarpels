@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { X, ChevronRight, CheckCircle2, Lock, RotateCcw } from 'lucide-react';
 import { ProjectTimesheetItem } from './TimesheetsView';
 
-export type TimesheetActionType = 'Submit' | 'Approve' | 'ReOpen';
+export type TimesheetActionType = 'Submit' | 'Approve' | 'Lock' | 'ReOpen';
 
 interface SlideToActionDrawerProps {
   open: boolean;
@@ -93,17 +93,26 @@ export default function SlideToActionDrawer({
       dragGlow: 'bg-brand-orange/15',
     },
     Approve: {
-      title: isPM ? 'Approve & Send to Super Admin' : 'Grant Final Approval',
-      notice: isPM ? 'Approving will advance this timesheet to Super Admin for final review.' : 'Final approval locks this monthly timesheet for billing & payroll.',
+      title: isPM ? 'Approve & Send to Super Admin' : 'Approve Timesheet',
+      notice: isPM ? 'Approving will advance this timesheet to Super Admin for final review & locking.' : 'Advance timesheet for billing & payroll processing.',
       noticeIcon: CheckCircle2,
-      noticeBg: 'bg-green-50 border-green-200 text-green-900',
+      noticeBg: 'bg-purple-50 border-purple-200 text-purple-900',
       sliderText: 'Slide to Approve',
+      btnColor: 'bg-purple-600',
+      dragGlow: 'bg-purple-600/15',
+    },
+    Lock: {
+      title: 'Final Review & Lock',
+      notice: 'Locking will finalize all hours. Only Super Admin can unlock or make further edits.',
+      noticeIcon: Lock,
+      noticeBg: 'bg-green-50 border-green-200 text-green-900',
+      sliderText: 'Slide to Lock',
       btnColor: 'bg-green-600',
       dragGlow: 'bg-green-600/15',
     },
     ReOpen: {
       title: 'ReOpen Timesheet',
-      notice: 'ReOpening will reset this timesheet back to Draft, returning it to the Employee for rework.',
+      notice: 'ReOpening will reset this timesheet back to Draft, returning it for rework.',
       noticeIcon: RotateCcw,
       noticeBg: 'bg-amber-50 border-amber-200 text-amber-900',
       sliderText: 'Slide to ReOpen',

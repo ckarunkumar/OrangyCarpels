@@ -21,14 +21,29 @@ export default function QuickTimeDrawer({ open, project, onClose, onSaved }: Qui
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [servicesList, setServicesList] = useState<string[]>([]);
+
   useEffect(() => {
-    if (open) {
+    if (open && project) {
       setDate(new Date().toISOString().split('T')[0]);
       setDescription('');
-      setTask('Ideation');
       setHours('03');
       setIsBillable(true);
       setError(null);
+      fetch(`/api/timesheets/daily-entries?projectId=${project.id}&month=${new Date().toISOString().slice(0, 7)}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.services) {
+            const svcs = d.services.split(',').map((s: string) => s.trim()).filter(Boolean);
+            setServicesList(svcs);
+            if (svcs.length > 0) setTask(svcs[0]);
+            else setTask('Ideation');
+          } else {
+            setServicesList([]);
+            setTask('Ideation');
+          }
+        })
+        .catch(() => { setServicesList([]); setTask('Ideation'); });
     }
   }, [open, project]);
 
@@ -110,9 +125,11 @@ export default function QuickTimeDrawer({ open, project, onClose, onSaved }: Qui
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-bold text-studio-muted uppercase tracking-wider mb-1">Task</label>
+              <label className="block text-[11px] font-bold text-studio-muted uppercase tracking-wider mb-1">
+                Services
+              </label>
               <select value={task} onChange={(e) => setTask(e.target.value)} className="w-full px-3 py-2 border border-studio-border rounded text-[12.5px] text-studio-text bg-white focus:outline-none focus:border-brand-orange">
-                {PRESET_TASKS.map((t) => (<option key={t} value={t}>{t}</option>))}
+                {(servicesList.length > 0 ? servicesList : PRESET_TASKS).map((t) => (<option key={t} value={t}>{t}</option>))}
               </select>
             </div>
             <div>

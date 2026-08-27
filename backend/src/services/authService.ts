@@ -2,7 +2,9 @@ import { prisma } from '../lib/prisma';
 import crypto from 'crypto';
 
 export interface UserSession {
+  id: number;
   userId: number;
+  employeeId: string;
   email: string;
   role: string;
   fullName: string;
@@ -34,7 +36,9 @@ export class AuthService {
     sessionStore[sessionId] = { userId: employee.id };
 
     const session: UserSession = {
+      id: employee.id,
       userId: employee.id,
+      employeeId: employee.employeeId,
       email: employee.email,
       role: employee.role || 'Employee',
       fullName: employee.fullName,
@@ -61,7 +65,9 @@ export class AuthService {
     if (!employee) return null;
 
     return {
+      id: employee.id,
       userId: employee.id,
+      employeeId: employee.employeeId,
       email: employee.email,
       role: employee.role || 'Employee',
       fullName: employee.fullName,
@@ -90,7 +96,9 @@ export class AuthService {
     });
 
     return {
+      id: employee.id,
       userId: employee.id,
+      employeeId: employee.employeeId,
       email: employee.email,
       role: employee.role || 'Employee',
       fullName: employee.fullName,

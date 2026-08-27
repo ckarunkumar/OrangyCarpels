@@ -14,7 +14,7 @@ export default function ProjectDetailDrawer({ open, project, isAdmin, onClose, o
   if (!project) return null;
 
   const isHourly = project.billingType === 'T&M' || project.billingType === 'Hourly Rate (T&M)';
-  const consumption = isHourly ? Math.round((project.loggedHours / (project.budgetHours || 1)) * 100) : 0;
+  const consumption = isHourly ? Math.round(((project.loggedHours || 0) / (project.budgetHours || 1)) * 100) : 0;
   const isExceeded = consumption >= 70;
 
   return (
@@ -82,6 +82,14 @@ export default function ProjectDetailDrawer({ open, project, isAdmin, onClose, o
               ) : (
                 <span className="font-bold text-studio-text text-brand-orange mt-0.5 block">{project.rate}</span>
               )}
+            </div>
+            <div>
+              <span className="text-studio-muted block text-[10px] uppercase font-bold tracking-wider">Business Line (BL)</span>
+              <span className="font-semibold text-studio-text mt-0.5 block">{project.businessLine || '—'}</span>
+            </div>
+            <div>
+              <span className="text-studio-muted block text-[10px] uppercase font-bold tracking-wider">Service</span>
+              <span className="font-semibold text-studio-text mt-0.5 block">{project.service || '—'}</span>
             </div>
             <div>
               <span className="text-studio-muted block text-[10px] uppercase font-bold tracking-wider">Project Start Date</span>

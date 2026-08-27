@@ -26,6 +26,20 @@ const registryRoutes = async (fastify) => {
             return reply.status(403).send({ error: err.message });
         }
     });
+    // PUT update employee
+    fastify.put('/employees/:id', { schema: registrySchema_1.updateEmployeeSchema }, async (request, reply) => {
+        const { id } = request.params;
+        const updateData = request.body;
+        const role = request.user.role;
+        try {
+            const updated = await registryService_1.RegistryService.updateEmployee(role, id, updateData);
+            return updated;
+        }
+        catch (err) {
+            const status = err.message.startsWith('Access Denied') ? 403 : 404;
+            return reply.status(status).send({ error: err.message });
+        }
+    });
     // GET clients list (with projects)
     fastify.get('/clients', { schema: registrySchema_1.getRegistrySchema }, async (request, reply) => {
         const role = request.user.role;
@@ -39,11 +53,37 @@ const registryRoutes = async (fastify) => {
     });
     // POST create client
     fastify.post('/clients', { schema: registrySchema_1.createClientSchema }, async (request, reply) => {
-        const { name, billingCurrency } = request.body;
+        const data = request.body;
         const role = request.user.role;
         try {
-            const newClient = await registryService_1.RegistryService.createClient(role, name, billingCurrency);
+            const newClient = await registryService_1.RegistryService.createClient(role, data);
             return newClient;
+        }
+        catch (err) {
+            const status = err.message.includes('already exists') ? 409 : 403;
+            return reply.status(status).send({ error: err.message });
+        }
+    });
+    // PUT update client
+    fastify.put('/clients/:id', { schema: registrySchema_1.updateClientSchema }, async (request, reply) => {
+        const { id } = request.params;
+        const updateData = request.body;
+        const role = request.user.role;
+        try {
+            const updated = await registryService_1.RegistryService.updateClient(role, id, updateData);
+            return updated;
+        }
+        catch (err) {
+            const status = err.message.startsWith('Access Denied') ? 403 : 404;
+            return reply.status(status).send({ error: err.message });
+        }
+    });
+    // GET all projects list
+    fastify.get('/projects', { schema: registrySchema_1.getRegistrySchema }, async (request, reply) => {
+        const role = request.user.role;
+        try {
+            const projects = await registryService_1.RegistryService.getAllProjects(role);
+            return projects;
         }
         catch (err) {
             return reply.status(403).send({ error: err.message });
@@ -51,14 +91,28 @@ const registryRoutes = async (fastify) => {
     });
     // POST create project under client
     fastify.post('/projects', { schema: registrySchema_1.createProjectSchema }, async (request, reply) => {
-        const { clientId, name, billingType, rate, budgetHours } = request.body;
+        const { id, clientId, name, billingType, rate, budgetHours, startDate, endDate, managerId, managerName, assignedEmployees, businessLine, service } = request.body;
         const role = request.user.role;
         try {
-            const newProj = await registryService_1.RegistryService.createProject(role, clientId, name, billingType, rate, budgetHours);
+            const newProj = await registryService_1.RegistryService.createProject(role, clientId, name, billingType, rate, budgetHours, startDate, endDate, id, managerId, managerName, assignedEmployees, businessLine, service);
             return newProj;
         }
         catch (err) {
             return reply.status(403).send({ error: err.message });
+        }
+    });
+    // PUT update project
+    fastify.put('/projects/:id', { schema: registrySchema_1.updateProjectSchema }, async (request, reply) => {
+        const { id } = request.params;
+        const updateData = request.body;
+        const role = request.user.role;
+        try {
+            const updated = await registryService_1.RegistryService.updateProject(role, id, updateData);
+            return updated;
+        }
+        catch (err) {
+            const status = err.message.startsWith('Access Denied') ? 403 : 404;
+            return reply.status(status).send({ error: err.message });
         }
     });
 };

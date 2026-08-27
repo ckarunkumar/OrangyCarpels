@@ -8,8 +8,7 @@ import Breadcrumbs from '../ui/Breadcrumbs';
 
 interface ProjectBilling {
   projectId: string; projectName: string; clientId: string; clientName: string;
-  billingType: 'T&M' | 'Fixed RC' | 'Fixed PC' | 'Hourly Rate (T&M)' | 'Monthly Resource Cost (Fixed)' | 'Project Cost (Fixed)' | string;
-  currency: string; rateAmount: number; rateFormatted: string; budgetHours: number;
+  billingType: string; currency: string; rateAmount: number; rateFormatted: string; budgetHours: number;
   loggedHours: number; nativeAmountBilled: number; exchangeRateToINR: number;
   inrAmountBilled: number; status: string; effectiveStartDate: string;
 }
@@ -31,7 +30,6 @@ export default function DashboardView({ activeRole }: { activeRole: UserRole }) 
   const [historyProj, setHistoryProj] = useState<ProjectBilling | null>(null);
 
   const fetchDashboard = () => {
-    if (activeRole !== 'Super Admin') { setLoading(false); return; }
     setLoading(true);
     fetch('/api/billing/summary')
       .then((res) => res.ok ? res.json() : null)
@@ -51,31 +49,29 @@ export default function DashboardView({ activeRole }: { activeRole: UserRole }) 
 
   const renderSuperAdmin = () => (
     <div className="space-y-5">
-      {/* Top 4 Financial Metric Cards in INR */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm">
           <div className="flex justify-between items-start mb-1"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider">Total Revenue (INR)</span><DollarSign className="w-4 h-4 text-brand-orange" /></div>
-          <p className="text-[22px] font-bold text-studio-text">₹{data?.totalRevenueINR.toLocaleString() || '0'}</p>
+          <p className="text-[22px] font-bold text-studio-text">₹{data?.totalRevenueINR ? data.totalRevenueINR.toLocaleString() : '0'}</p>
           <span className="text-[10px] text-green-600 font-semibold flex items-center gap-0.5 mt-0.5"><TrendingUp className="w-3 h-3" /> Live multi-currency rate applied</span>
         </div>
         <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm">
           <div className="flex justify-between items-start mb-1"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider">Hourly T&M (INR)</span><Clock className="w-4 h-4 text-brand-blue" /></div>
-          <p className="text-[22px] font-bold text-studio-text">₹{data?.tmRevenueINR.toLocaleString() || '0'}</p>
+          <p className="text-[22px] font-bold text-studio-text">₹{data?.tmRevenueINR ? data.tmRevenueINR.toLocaleString() : '0'}</p>
           <span className="text-[10px] text-studio-muted mt-0.5 block">{data?.totalHoursLogged || 0} billable hours logged</span>
         </div>
         <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm">
           <div className="flex justify-between items-start mb-1"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider">Monthly Retainers (INR)</span><Layers className="w-4 h-4 text-purple-600" /></div>
-          <p className="text-[22px] font-bold text-studio-text">₹{data?.monthlyFixedRevenueINR.toLocaleString() || '0'}</p>
+          <p className="text-[22px] font-bold text-studio-text">₹{data?.monthlyFixedRevenueINR ? data.monthlyFixedRevenueINR.toLocaleString() : '0'}</p>
           <span className="text-[10px] text-studio-muted mt-0.5 block">Fixed monthly recurring billing</span>
         </div>
         <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm">
           <div className="flex justify-between items-start mb-1"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider">Fixed Projects (INR)</span><FolderKanban className="w-4 h-4 text-green-600" /></div>
-          <p className="text-[22px] font-bold text-studio-text">₹{data?.projectFixedRevenueINR.toLocaleString() || '0'}</p>
+          <p className="text-[22px] font-bold text-studio-text">₹{data?.projectFixedRevenueINR ? data.projectFixedRevenueINR.toLocaleString() : '0'}</p>
           <span className="text-[10px] text-studio-muted mt-0.5 block">{data?.activeProjectsCount || 0} active project accounts</span>
         </div>
       </div>
 
-      {/* Live Currency Rates Bar */}
       {data?.exchangeRates && (
         <div className="p-3 bg-studio-sidebar border border-studio-border rounded-lg flex items-center justify-between overflow-x-auto text-[11px]">
           <span className="font-bold text-studio-text uppercase tracking-wider shrink-0 mr-3">Exchange Rates (to INR):</span>
@@ -88,7 +84,6 @@ export default function DashboardView({ activeRole }: { activeRole: UserRole }) 
         </div>
       )}
 
-      {/* Projects Revenue & Billing Matrix */}
       <div className="border border-studio-border rounded-lg bg-white overflow-hidden shadow-sm">
         <div className="bg-studio-sidebar border-b border-studio-border px-4 py-2.5 text-[10px] font-bold text-studio-muted uppercase tracking-wider grid grid-cols-12 gap-2 items-center">
           <div className="col-span-3">Project & Client</div>
@@ -102,15 +97,15 @@ export default function DashboardView({ activeRole }: { activeRole: UserRole }) 
         <div className="divide-y divide-studio-border bg-white">
           {loading ? (
             Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} />)
-          ) : data?.projects.map((p) => (
+          ) : !data?.projects || data.projects.length === 0 ? (
+            <div className="text-center py-10 text-studio-muted text-[12.5px]">No project billing data recorded yet.</div>
+          ) : data.projects.map((p) => (
             <div key={p.projectId} className="px-4 py-2.5 grid grid-cols-12 gap-2 text-[12px] items-center hover:bg-studio-hover/40 transition-colors">
               <div className="col-span-3 min-w-0 pr-2">
                 <p className="font-semibold text-studio-text truncate">{p.projectName}</p>
                 <p className="text-[10px] text-studio-muted truncate">{p.clientName} • <span className="font-mono">{p.projectId}</span></p>
               </div>
-              <div className="col-span-2 flex items-center">
-                <BillingBadge type={p.billingType} />
-              </div>
+              <div className="col-span-2 flex items-center"><BillingBadge type={p.billingType} /></div>
               <div className="col-span-2 font-mono font-medium text-studio-text flex items-center gap-1.5">
                 <span>{p.rateFormatted}</span>
                 <button type="button" onClick={() => setHistoryProj(p)} title="View Rate History" className="text-brand-orange hover:opacity-75"><History className="w-3 h-3" /></button>
@@ -127,17 +122,41 @@ export default function DashboardView({ activeRole }: { activeRole: UserRole }) 
 
   const renderPM = () => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider block mb-1">Tracked Team Hours</span><p className="text-[20px] font-bold text-studio-text">340 hrs</p><span className="text-[10px] text-studio-muted mt-1 block">Assigned projects</span></div>
-      <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider block mb-1">Team Utilization</span><p className="text-[20px] font-bold text-studio-text">81%</p><span className="text-[10px] text-green-600 font-semibold block mt-1">Above target baseline</span></div>
-      <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider block mb-1">Active Projects</span><p className="text-[20px] font-bold text-studio-text">5</p><span className="text-[10px] text-studio-muted mt-1 block">Under management</span></div>
+      <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm">
+        <span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider block mb-1">Tracked Team Hours</span>
+        <p className="text-[20px] font-bold text-studio-text">{data?.totalHoursLogged || 0} hrs</p>
+        <span className="text-[10px] text-studio-muted mt-1 block">Live monthly logs</span>
+      </div>
+      <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm">
+        <span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider block mb-1">Active Projects</span>
+        <p className="text-[20px] font-bold text-studio-text">{data?.activeProjectsCount || 0}</p>
+        <span className="text-[10px] text-studio-muted mt-1 block">Under management</span>
+      </div>
+      <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm">
+        <span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider block mb-1">Total Managed Billing</span>
+        <p className="text-[20px] font-bold text-brand-orange">₹{data?.totalRevenueINR ? data.totalRevenueINR.toLocaleString() : '0'}</p>
+        <span className="text-[10px] text-studio-muted mt-1 block">Active month valuation</span>
+      </div>
     </div>
   );
 
   const renderEmployee = () => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider block mb-1">Weekly Hours</span><p className="text-[20px] font-bold text-studio-text">35.0 hrs</p><span className="text-[10px] text-brand-orange font-semibold block mt-1">5.0 hrs remaining</span></div>
-      <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider block mb-1">Leave Balance</span><p className="text-[20px] font-bold text-studio-text">14 days</p><span className="text-[10px] text-studio-muted mt-1 block">Casual: 6 | Sick: 8</span></div>
-      <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm"><span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider block mb-1">Assigned Projects</span><p className="text-[20px] font-bold text-studio-text">2</p><span className="text-[10px] text-studio-muted mt-1 block">Active tasks</span></div>
+      <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm">
+        <span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider block mb-1">Logged Hours This Month</span>
+        <p className="text-[20px] font-bold text-studio-text">{data?.totalHoursLogged || 0} hrs</p>
+        <span className="text-[10px] text-studio-muted mt-1 block">Recorded across tasks</span>
+      </div>
+      <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm">
+        <span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider block mb-1">Assigned Projects</span>
+        <p className="text-[20px] font-bold text-studio-text">{data?.activeProjectsCount || 0}</p>
+        <span className="text-[10px] text-studio-muted mt-1 block">Active assignments</span>
+      </div>
+      <div className="bg-white p-4 border border-studio-border rounded-lg shadow-sm">
+        <span className="text-[11px] text-studio-muted font-medium uppercase tracking-wider block mb-1">Studio Work Capacity</span>
+        <p className="text-[20px] font-bold text-emerald-600">40 hrs/wk</p>
+        <span className="text-[10px] text-studio-muted mt-1 block">Standard target</span>
+      </div>
     </div>
   );
 
@@ -156,7 +175,7 @@ export default function DashboardView({ activeRole }: { activeRole: UserRole }) 
               <select value={selectedFY} onChange={(e) => setSelectedFY(e.target.value)} className="px-2.5 py-1.5 border border-studio-border rounded bg-white text-[12px] font-medium text-studio-text">
                 {FISCAL_YEARS.map((fy) => (<option key={fy} value={fy}>{fy}</option>))}
               </select>
-              <button onClick={handleSyncRates} disabled={syncing} className="flex items-center gap-1 px-3 py-1.5 bg-white border border-studio-border hover:border-brand-orange text-studio-text hover:text-brand-orange rounded text-[12px] font-semibold transition-colors disabled:opacity-50">
+              <button onClick={handleSyncRates} disabled={syncing} className="flex items-center gap-1 px-3 py-1.5 bg-white border border-studio-border hover:border-brand-orange text-studio-text hover:text-brand-orange rounded text-[12px] font-semibold transition-colors disabled:opacity-50 cursor-pointer shadow-2xs">
                 <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} /> {syncing ? 'Syncing...' : 'Sync Rates'}
               </button>
             </div>

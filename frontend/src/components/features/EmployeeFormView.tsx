@@ -7,14 +7,15 @@ type FormState = {
   employeeId: string; fullName: string; dob: string; designation: string; department: string;
   email: string; personalEmail: string; phone: string; secondaryPhone: string;
   permanentAddress: string; guardianName: string; motherName: string; bloodGroup: string;
-  linkedInUrl: string; aadhaarNumber: string; panNumber: string; status: 'Active' | 'Inactive';
-  role: 'Super Admin' | 'Project Manager' | 'Employee'; avatar: string | null;
+  linkedInUrl: string; aadhaarNumber: string; panNumber: string; joiningDate: string; relievingDate: string;
+  status: 'Active' | 'Inactive'; role: 'Super Admin' | 'Project Manager' | 'Employee'; avatar: string | null;
 };
 
 const EMPTY_FORM: FormState = {
   employeeId: '', fullName: '', dob: '', designation: '', department: '', email: '', personalEmail: '',
   phone: '', secondaryPhone: '', permanentAddress: '', guardianName: '', motherName: '', bloodGroup: '',
-  linkedInUrl: '', aadhaarNumber: '', panNumber: '', status: 'Active', role: 'Employee', avatar: null,
+  linkedInUrl: '', aadhaarNumber: '', panNumber: '', joiningDate: '', relievingDate: '', status: 'Active',
+  role: 'Employee', avatar: null,
 };
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
@@ -43,7 +44,8 @@ export default function EmployeeFormView({ mode, employee, onBack, onSaved }: Em
         permanentAddress: employee.permanentAddress || '', guardianName: employee.guardianName || '',
         motherName: employee.motherName || '', bloodGroup: employee.bloodGroup || '',
         linkedInUrl: employee.linkedInUrl || '', aadhaarNumber: employee.aadhaarNumber || '',
-        panNumber: employee.panNumber || '', status: employee.status, role: employee.role,
+        panNumber: employee.panNumber || '', joiningDate: employee.joiningDate || '',
+        relievingDate: employee.relievingDate || '', status: employee.status, role: employee.role,
         avatar: employee.avatar || null,
       });
     } else {
@@ -52,18 +54,25 @@ export default function EmployeeFormView({ mode, employee, onBack, onSaved }: Em
   }, [mode, employee]);
 
   const set = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setForm((prev) => ({ ...prev, [key]: e.target.value }));
+    const val = e.target.value;
+    setForm((prev) => {
+      const next = { ...prev, [key]: val };
+      if (key === 'relievingDate') {
+        const today = new Date().toISOString().slice(0, 10);
+        if (val && val <= today) next.status = 'Inactive';
+      }
+      return next;
+    });
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) { setServerError('Image size must be under 2MB'); return; }
-      const reader = new FileReader();
-      reader.onload = () => setForm((prev) => ({ ...prev, avatar: reader.result as string }));
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { setServerError('Image size must be under 2MB'); return; }
+    const reader = new FileReader();
+    reader.onload = () => setForm((prev) => ({ ...prev, avatar: reader.result as string }));
+    reader.readAsDataURL(file);
   };
 
   const validate = (): boolean => {
@@ -73,8 +82,7 @@ export default function EmployeeFormView({ mode, employee, onBack, onSaved }: Em
     if (!form.dob.trim()) errs.dob = 'Date of birth is required';
     if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errs.email = 'Valid email is required';
     if (!form.phone.trim()) errs.phone = 'Mobile number is required';
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
+    setErrors(errs); return Object.keys(errs).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,11 +91,8 @@ export default function EmployeeFormView({ mode, employee, onBack, onSaved }: Em
     setSaving(true); setServerError(null);
     try {
       const url = mode === 'edit' ? `/api/employees/${employee!.id}` : '/api/employees';
-      const res = await fetch(url, {
-        method: mode === 'edit' ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, employeeId: form.employeeId.trim().toUpperCase(), panNumber: form.panNumber.trim().toUpperCase() }),
-      });
+      const body = JSON.stringify({ ...form, employeeId: form.employeeId.trim().toUpperCase(), panNumber: form.panNumber.trim().toUpperCase() });
+      const res = await fetch(url, { method: mode === 'edit' ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save employee profile.');
       onSaved(mode === 'edit' ? `Team member ${form.fullName} updated successfully.` : `Team member ${form.fullName} created successfully.`);
@@ -100,7 +105,6 @@ export default function EmployeeFormView({ mode, employee, onBack, onSaved }: Em
   return (
     <div className="w-full space-y-5 animate-in fade-in duration-200">
       <Breadcrumbs items={[{ label: 'Team', onClick: onBack }, { label: mode === 'edit' ? `Edit Member (${employee?.fullName || ''})` : 'New Member' }]} />
-      {/* Top Bar Navigation */}
       <div className="flex items-center justify-between border-b border-studio-border pb-3">
         <div className="flex items-center gap-3">
           <button type="button" onClick={onBack} className="p-1.5 rounded-lg border border-studio-border bg-white hover:bg-studio-sidebar text-studio-text transition-colors cursor-pointer" title="Back to Team Registry"><ArrowLeft className="w-4 h-4" /></button>
@@ -170,6 +174,9 @@ export default function EmployeeFormView({ mode, employee, onBack, onSaved }: Em
         <div className="space-y-3">
           <div className="border-b border-studio-border/70 pb-1.5"><h3 className="text-[13px] font-bold text-studio-text uppercase tracking-wider">3. Access Role & Status</h3></div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
+            <div><label className={labelCls}>Date of Joining</label><input type="date" value={form.joiningDate} onChange={set('joiningDate')} className={inputCls()} /></div>
+            <div><label className={labelCls}>Date of Relieving</label><input type="date" value={form.relievingDate} onChange={set('relievingDate')} className={inputCls()} /></div>
+            <div className="hidden md:block" />
             <div><label className={labelCls}>System Role</label><select value={form.role} onChange={set('role')} className={inputCls()}><option value="Employee">Employee</option><option value="Project Manager">Project Manager</option><option value="Super Admin">Super Admin</option></select></div>
             <div><label className={labelCls}>Status</label><select value={form.status} onChange={set('status')} className={inputCls()}><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
           </div>

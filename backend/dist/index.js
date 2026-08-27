@@ -43,6 +43,10 @@ const dotenv = __importStar(require("dotenv"));
 const timesheets_1 = __importDefault(require("./api/routes/timesheets"));
 const registries_1 = __importDefault(require("./api/routes/registries"));
 const auth_1 = __importDefault(require("./api/routes/auth"));
+const billing_1 = __importDefault(require("./api/routes/billing"));
+const notifications_1 = __importDefault(require("./api/routes/notifications"));
+const businessLines_1 = require("./api/routes/businessLines");
+const leaves_1 = __importDefault(require("./api/routes/leaves"));
 const authService_1 = require("./services/authService");
 dotenv.config();
 const fastify = (0, fastify_1.default)({
@@ -70,7 +74,7 @@ const start = async () => {
             if (!sessionId) {
                 return reply.status(401).send({ error: 'Unauthorized: No active session.' });
             }
-            const session = authService_1.AuthService.getSession(sessionId);
+            const session = await authService_1.AuthService.getSession(sessionId);
             if (!session) {
                 return reply.status(401).send({ error: 'Unauthorized: Session expired or invalid.' });
             }
@@ -79,12 +83,16 @@ const start = async () => {
         });
         // Health check endpoint
         fastify.get('/api/health', async () => {
-            return { status: 'OK', message: 'Orangy Carpels Backend API is healthy' };
+            return { status: 'OK', message: 'Orangyy Carpels Backend API is healthy' };
         });
-        // Register timesheet, registry, and auth API routes
+        // Register timesheet, registry, billing, and auth API routes
         await fastify.register(auth_1.default, { prefix: '/api' });
         await fastify.register(timesheets_1.default, { prefix: '/api' });
         await fastify.register(registries_1.default, { prefix: '/api' });
+        await fastify.register(billing_1.default, { prefix: '/api' });
+        await fastify.register(notifications_1.default, { prefix: '/api' });
+        await fastify.register(leaves_1.default, { prefix: '/api' });
+        await fastify.register(businessLines_1.businessLineRoutes);
         const port = Number(process.env.PORT) || 5001;
         const host = process.env.HOST || '0.0.0.0';
         await fastify.listen({ port, host });

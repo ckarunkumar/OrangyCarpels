@@ -1,12 +1,16 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const prisma_1 = require("../lib/prisma");
-// In-memory session datastore (Phase F mockup, simple and robust)
+const crypto_1 = __importDefault(require("crypto"));
+// In-memory session datastore
 const sessionStore = {};
 class AuthService {
     /**
-     * Logs in a user by email, verifying profile exists in SQLite database.
+     * Logs in a user by email, verifying profile exists in database.
      */
     static async login(email) {
         const cleanEmail = email.toLowerCase().trim();
@@ -16,23 +20,74 @@ class AuthService {
         if (!employee) {
             return { success: false, error: 'Unauthorized: No employee profile registered with this email.' };
         }
-        // Generate random 32-character hex session token
-        const sessionId = require('crypto').randomBytes(16).toString('hex');
+        const sessionId = crypto_1.default.randomBytes(16).toString('hex');
+        sessionStore[sessionId] = { userId: employee.id };
         const session = {
+            id: employee.id,
             userId: employee.id,
+            employeeId: employee.employeeId,
             email: employee.email,
-            role: employee.fullName === 'Nikhil Sen' ? 'Super Admin' : employee.designation.includes('Manager') || employee.fullName === 'Sarah Jenkins' ? 'Project Manager' : 'Employee', // Deriving role strictly based on user parameters or designations
+            role: employee.role || 'Employee',
             fullName: employee.fullName,
+            designation: employee.designation,
+            department: employee.department,
+            phone: employee.phone,
+            location: employee.location || 'Delhi, India',
+            avatar: employee.avatar,
         };
-        // Store in-memory session
-        sessionStore[sessionId] = session;
         return { success: true, sessionId, session };
     }
     /**
-     * Retrieves active session by ID.
+     * Retrieves active session by ID, fetching the latest DB details.
      */
-    static getSession(sessionId) {
-        return sessionStore[sessionId] || null;
+    static async getSession(sessionId) {
+        const record = sessionStore[sessionId];
+        if (!record)
+            return null;
+        const employee = await prisma_1.prisma.employee.findUnique({
+            where: { id: record.userId },
+        });
+        if (!employee)
+            return null;
+        return {
+            id: employee.id,
+            userId: employee.id,
+            employeeId: employee.employeeId,
+            email: employee.email,
+            role: employee.role || 'Employee',
+            fullName: employee.fullName,
+            designation: employee.designation,
+            department: employee.department,
+            phone: employee.phone,
+            location: employee.location || 'Delhi, India',
+            avatar: employee.avatar,
+        };
+    }
+    /**
+     * Updates user profile fields: phone, location, avatar.
+     */
+    static async updateProfile(userId, data) {
+        const employee = await prisma_1.prisma.employee.update({
+            where: { id: userId },
+            data: {
+                ...(data.phone !== undefined && { phone: data.phone }),
+                ...(data.location !== undefined && { location: data.location }),
+                ...(data.avatar !== undefined && { avatar: data.avatar }),
+            },
+        });
+        return {
+            id: employee.id,
+            userId: employee.id,
+            employeeId: employee.employeeId,
+            email: employee.email,
+            role: employee.role || 'Employee',
+            fullName: employee.fullName,
+            designation: employee.designation,
+            department: employee.department,
+            phone: employee.phone,
+            location: employee.location || 'Delhi, India',
+            avatar: employee.avatar,
+        };
     }
     /**
      * Destroys active session.

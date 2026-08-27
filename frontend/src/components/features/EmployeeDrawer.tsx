@@ -5,8 +5,8 @@ export interface Employee {
   id: number; employeeId?: string; fullName: string; dob?: string; designation: string; department: string;
   email: string; personalEmail?: string; phone: string; secondaryPhone?: string; permanentAddress?: string;
   guardianName?: string; motherName?: string; bloodGroup?: string; linkedInUrl?: string; aadhaarNumber?: string;
-  panNumber?: string; status: 'Active' | 'Inactive'; role: 'Super Admin' | 'Project Manager' | 'Employee';
-  location?: string; avatar?: string | null;
+  panNumber?: string; joiningDate?: string; relievingDate?: string; status: 'Active' | 'Inactive';
+  role: 'Super Admin' | 'Project Manager' | 'Employee'; location?: string; avatar?: string | null;
   education?: Array<{ degree: string; school: string; year: string }>;
   experience?: Array<{ company: string; role: string; period: string }>;
 }
@@ -15,14 +15,15 @@ type FormState = {
   employeeId: string; fullName: string; dob: string; designation: string; department: string;
   email: string; personalEmail: string; phone: string; secondaryPhone: string;
   permanentAddress: string; guardianName: string; motherName: string; bloodGroup: string;
-  linkedInUrl: string; aadhaarNumber: string; panNumber: string; status: 'Active' | 'Inactive';
-  role: 'Super Admin' | 'Project Manager' | 'Employee'; avatar: string | null;
+  linkedInUrl: string; aadhaarNumber: string; panNumber: string; joiningDate: string; relievingDate: string;
+  status: 'Active' | 'Inactive'; role: 'Super Admin' | 'Project Manager' | 'Employee'; avatar: string | null;
 };
 
 const EMPTY_FORM: FormState = {
   employeeId: '', fullName: '', dob: '', designation: '', department: '', email: '', personalEmail: '',
   phone: '', secondaryPhone: '', permanentAddress: '', guardianName: '', motherName: '', bloodGroup: '',
-  linkedInUrl: '', aadhaarNumber: '', panNumber: '', status: 'Active', role: 'Employee', avatar: null,
+  linkedInUrl: '', aadhaarNumber: '', panNumber: '', joiningDate: '', relievingDate: '', status: 'Active',
+  role: 'Employee', avatar: null,
 };
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
@@ -40,38 +41,45 @@ export default function EmployeeDrawer({ open, mode, employee, onClose, onSaved 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (open) {
-      setErrors({}); setServerError(null);
-      if (mode === 'edit' && employee) {
-        setForm({
-          employeeId: employee.employeeId || '', fullName: employee.fullName, dob: employee.dob || '',
-          designation: employee.designation, department: employee.department, email: employee.email,
-          personalEmail: employee.personalEmail || '', phone: employee.phone, secondaryPhone: employee.secondaryPhone || '',
-          permanentAddress: employee.permanentAddress || '', guardianName: employee.guardianName || '',
-          motherName: employee.motherName || '', bloodGroup: employee.bloodGroup || '',
-          linkedInUrl: employee.linkedInUrl || '', aadhaarNumber: employee.aadhaarNumber || '',
-          panNumber: employee.panNumber || '', status: employee.status, role: employee.role,
-          avatar: employee.avatar || null,
-        });
-      } else {
-        setForm(EMPTY_FORM);
-      }
+    if (!open) return;
+    setErrors({}); setServerError(null);
+    if (mode === 'edit' && employee) {
+      setForm({
+        employeeId: employee.employeeId || '', fullName: employee.fullName, dob: employee.dob || '',
+        designation: employee.designation, department: employee.department, email: employee.email,
+        personalEmail: employee.personalEmail || '', phone: employee.phone, secondaryPhone: employee.secondaryPhone || '',
+        permanentAddress: employee.permanentAddress || '', guardianName: employee.guardianName || '',
+        motherName: employee.motherName || '', bloodGroup: employee.bloodGroup || '',
+        linkedInUrl: employee.linkedInUrl || '', aadhaarNumber: employee.aadhaarNumber || '',
+        panNumber: employee.panNumber || '', joiningDate: employee.joiningDate || '',
+        relievingDate: employee.relievingDate || '', status: employee.status, role: employee.role,
+        avatar: employee.avatar || null,
+      });
+    } else {
+      setForm(EMPTY_FORM);
     }
   }, [open, mode, employee]);
 
   const set = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setForm((prev) => ({ ...prev, [key]: e.target.value }));
+    const val = e.target.value;
+    setForm((prev) => {
+      const next = { ...prev, [key]: val };
+      if (key === 'relievingDate') {
+        const today = new Date().toISOString().slice(0, 10);
+        if (val && val <= today) next.status = 'Inactive';
+      }
+      return next;
+    });
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) { setServerError('Image size must be under 2MB'); return; }
-      const reader = new FileReader();
-      reader.onload = () => setForm((prev) => ({ ...prev, avatar: reader.result as string }));
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { setServerError('Image size must be under 2MB'); return; }
+    const reader = new FileReader();
+    reader.onload = () => setForm((prev) => ({ ...prev, avatar: reader.result as string }));
+    reader.readAsDataURL(file);
   };
 
   const validate = (): boolean => {
@@ -81,8 +89,7 @@ export default function EmployeeDrawer({ open, mode, employee, onClose, onSaved 
     if (!form.dob.trim()) errs.dob = 'Date of birth is required';
     if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errs.email = 'Valid email is required';
     if (!form.phone.trim()) errs.phone = 'Mobile number is required';
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
+    setErrors(errs); return Object.keys(errs).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -91,11 +98,8 @@ export default function EmployeeDrawer({ open, mode, employee, onClose, onSaved 
     setSaving(true); setServerError(null);
     try {
       const url = mode === 'edit' ? `/api/employees/${employee!.id}` : '/api/employees';
-      const res = await fetch(url, {
-        method: mode === 'edit' ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, employeeId: form.employeeId.trim().toUpperCase(), panNumber: form.panNumber.trim().toUpperCase() }),
-      });
+      const body = JSON.stringify({ ...form, employeeId: form.employeeId.trim().toUpperCase(), panNumber: form.panNumber.trim().toUpperCase() });
+      const res = await fetch(url, { method: mode === 'edit' ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save employee profile.');
       onSaved(); onClose();
@@ -112,7 +116,7 @@ export default function EmployeeDrawer({ open, mode, employee, onClose, onSaved 
         <div className="flex items-center justify-between px-7 py-3.5 border-b border-studio-border shrink-0">
           <div>
             <h3 className="text-[16px] font-semibold text-studio-text">{mode === 'edit' ? 'Edit Team Member' : 'New Team Member'}</h3>
-            <p className="text-[11px] text-studio-muted mt-0.5">{mode === 'edit' ? `Editing: ${employee?.fullName}` : 'Fill in profile details, unique Emp ID & photo'}</p>
+            <p className="text-[11px] text-studio-muted mt-0.5">{mode === 'edit' ? `Editing: ${employee?.fullName}` : 'Fill in profile details, joining & relive dates'}</p>
           </div>
           <button type="button" onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-studio-muted hover:bg-studio-sidebar transition-colors"><X className="w-4 h-4" /></button>
         </div>
@@ -173,8 +177,11 @@ export default function EmployeeDrawer({ open, mode, employee, onClose, onSaved 
 
           {/* 3. Status */}
           <div className="space-y-2.5">
-            <h4 className="text-[12px] font-bold text-studio-text pb-1 border-b border-studio-border/70">Status</h4>
+            <h4 className="text-[12px] font-bold text-studio-text pb-1 border-b border-studio-border/70">Status & Role</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3">
+              <div><label className={labelCls}>Date of Joining</label><input type="date" value={form.joiningDate} onChange={set('joiningDate')} className={inputCls()} /></div>
+              <div><label className={labelCls}>Date of Relieving</label><input type="date" value={form.relievingDate} onChange={set('relievingDate')} className={inputCls()} /></div>
+              <div className="hidden md:block" />
               <div><label className={labelCls}>Role</label><select value={form.role} onChange={set('role')} className={inputCls()}><option value="Employee">Employee</option><option value="Project Manager">Project Manager</option><option value="Super Admin">Super Admin</option></select></div>
               <div><label className={labelCls}>Status</label><select value={form.status} onChange={set('status')} className={inputCls()}><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
             </div>

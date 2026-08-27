@@ -55,7 +55,9 @@ export default function ProjectsView({ activeRole }: { activeRole: UserRole }) {
     return (
       proj.id.toLowerCase().includes(q) ||
       proj.name.toLowerCase().includes(q) ||
-      (proj.clientName && proj.clientName.toLowerCase().includes(q))
+      (proj.clientName && proj.clientName.toLowerCase().includes(q)) ||
+      (proj.businessLine && proj.businessLine.toLowerCase().includes(q)) ||
+      (proj.service && proj.service.toLowerCase().includes(q))
     );
   });
 
@@ -125,7 +127,7 @@ export default function ProjectsView({ activeRole }: { activeRole: UserRole }) {
             ) : (
               filteredProjects.map((proj) => {
                 const isHourly = proj.billingType === 'T&M' || proj.billingType === 'Hourly Rate (T&M)';
-                const consumption = isHourly ? Math.round((proj.loggedHours / (proj.budgetHours || 1)) * 100) : 0;
+                const consumption = isHourly ? Math.round(((proj.loggedHours || 0) / (proj.budgetHours || 1)) * 100) : 0;
                 const assignedCount = proj.assignedEmployees?.length || 0;
                 const assignedNames = proj.assignedEmployees && proj.assignedEmployees.length > 0
                   ? proj.assignedEmployees.map((id) => {
@@ -142,7 +144,7 @@ export default function ProjectsView({ activeRole }: { activeRole: UserRole }) {
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-studio-text truncate group-hover:text-brand-orange transition-colors text-[13px]">{proj.name}</p>
-                        <p className="text-[11px] text-studio-muted font-mono truncate mt-0.5">{proj.id} : {proj.clientName || proj.clientId}</p>
+                        <p className="text-[11px] text-studio-muted font-mono truncate mt-0.5">{proj.id} : {proj.clientName || proj.clientId} {proj.businessLine ? `• ${proj.businessLine}` : ''}</p>
                       </div>
                     </div>
                     <div className="col-span-2 min-w-0 pr-2">
