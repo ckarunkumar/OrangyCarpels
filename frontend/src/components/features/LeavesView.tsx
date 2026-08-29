@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Users, CheckCircle2, Clock } from 'lucide-react';
+import { Plus, Calendar, CheckCircle2, Clock } from 'lucide-react';
 import { UserRole } from '../ui/Layout';
 import Breadcrumbs from '../ui/Breadcrumbs';
 import LeaveApplyDrawer from './LeaveApplyDrawer';
@@ -10,12 +10,11 @@ const LEAVE_YEARS = [2024, 2025, 2026, 2027, 2028, 2029];
 
 export default function LeavesView({ activeRole }: { activeRole: UserRole }) {
   const [selectedYear, setSelectedYear] = useState(2026);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'team' | 'approvals'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'calendar' | 'approvals'>('dashboard');
   const [balance, setBalance] = useState<any>(null);
   const [requests, setRequests] = useState<any[]>([]);
   const [compOffs, setCompOffs] = useState<any[]>([]);
   const [holidays, setHolidays] = useState<any[]>([]);
-  const [attendance, setAttendance] = useState<any>(null);
   const [openApply, setOpenApply] = useState(false);
   const [reviewItem, setReviewItem] = useState<{ item: any; type: 'leave' | 'compoff' } | null>(null);
 
@@ -24,7 +23,6 @@ export default function LeavesView({ activeRole }: { activeRole: UserRole }) {
     fetch('/api/leaves/requests').then((r) => r.json()).then((d) => Array.isArray(d) && setRequests(d)).catch(() => {});
     fetch('/api/leaves/compoff').then((r) => r.json()).then((d) => Array.isArray(d) && setCompOffs(d)).catch(() => {});
     fetch(`/api/leaves/holidays?year=${year}&published=true`).then((r) => r.json()).then((d) => Array.isArray(d) && setHolidays(d)).catch(() => {});
-    fetch(`/api/leaves/attendance?monthYear=${year}-08`).then((r) => r.json()).then(setAttendance).catch(() => {});
   };
 
   useEffect(() => { loadData(selectedYear); }, [selectedYear]);
@@ -35,16 +33,15 @@ export default function LeavesView({ activeRole }: { activeRole: UserRole }) {
 
   return (
     <div className="w-full space-y-5 animate-in fade-in duration-200">
-      <LeaveApplyDrawer open={openApply} onClose={() => setOpenApply(false)} onApplied={() => loadData(selectedYear)} balanceData={balance} publishedHolidays={holidays} />
+      <LeaveApplyDrawer open={openApply} onClose={() => setOpenApply(false)} onApplied={() => loadData(selectedYear)} balanceData={balance} selectedYear={selectedYear} publishedHolidays={holidays} />
       <LeaveApprovalDrawer open={!!reviewItem} item={reviewItem?.item} type={reviewItem?.type || 'leave'} onClose={() => setReviewItem(null)} onProcessed={() => loadData(selectedYear)} />
 
       <Breadcrumbs items={[{ label: 'Leaves & Calendar' }]} />
 
-      {/* Consistent Page Header */}
       <div className="flex justify-between items-center border-b border-studio-border pb-3">
         <div>
           <h2 className="text-[20px] font-bold tracking-tight text-studio-text">Leaves & Calendar</h2>
-          <p className="text-[12px] text-studio-muted">Manage time-off requests, WFH quotas, team availability matrix, and studio calendar</p>
+          <p className="text-[12px] text-studio-muted">Manage time-off requests, WFH quotas, and published studio calendar</p>
         </div>
         <div className="flex items-center gap-2">
           <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="px-2.5 py-1.5 border border-studio-border rounded bg-white text-[12px] font-semibold text-studio-text focus:outline-none focus:border-brand-orange shadow-2xs">
@@ -59,10 +56,10 @@ export default function LeavesView({ activeRole }: { activeRole: UserRole }) {
       {/* Tabs */}
       <div className="border-b border-studio-border flex gap-6 text-[13px] font-medium">
         <button onClick={() => setActiveTab('dashboard')} className={`pb-2.5 flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${activeTab === 'dashboard' ? 'border-brand-orange text-brand-orange font-bold' : 'border-transparent text-studio-muted hover:text-studio-text'}`}>
-          <Clock className="w-4 h-4" /> My Quotas & History ({selectedYear})
+          <Clock className="w-4 h-4" /> My Leaves
         </button>
-        <button onClick={() => setActiveTab('team')} className={`pb-2.5 flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${activeTab === 'team' ? 'border-brand-orange text-brand-orange font-bold' : 'border-transparent text-studio-muted hover:text-studio-text'}`}>
-          <Users className="w-4 h-4" /> Team & Calendar ({selectedYear})
+        <button onClick={() => setActiveTab('calendar')} className={`pb-2.5 flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${activeTab === 'calendar' ? 'border-brand-orange text-brand-orange font-bold' : 'border-transparent text-studio-muted hover:text-studio-text'}`}>
+          <Calendar className="w-4 h-4" /> Holiday Calendar
         </button>
         {(activeRole === 'Super Admin' || activeRole === 'Project Manager') && (
           <button onClick={() => setActiveTab('approvals')} className={`pb-2.5 flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${activeTab === 'approvals' ? 'border-brand-orange text-brand-orange font-bold' : 'border-transparent text-studio-muted hover:text-studio-text'}`}>
@@ -128,9 +125,9 @@ export default function LeavesView({ activeRole }: { activeRole: UserRole }) {
         </div>
       )}
 
-      {/* Tab 2: Team & Calendar */}
-      {activeTab === 'team' && (
-        <TeamAvailabilityView attendance={attendance} holidays={holidays} />
+      {/* Tab 2: Holiday Calendar */}
+      {activeTab === 'calendar' && (
+        <TeamAvailabilityView holidays={holidays} />
       )}
 
       {/* Tab 3: Approvals */}
