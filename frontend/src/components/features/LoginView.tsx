@@ -75,8 +75,34 @@ export default function LoginView() {
               {!loading && <ArrowRight className="w-4 h-4" />}
             </button>
           </form>
+
+          {/* Quick Demo Accounts */}
+          <div className="pt-3 border-t border-studio-border/60 space-y-2">
+            <p className="text-[11px] font-medium text-studio-muted">Quick Sign-in (Demo Accounts):</p>
+            <div className="flex flex-col gap-1.5">
+              {[
+                { label: 'Super Admin', email: 'arun@orangyy.design' },
+                { label: 'Project Manager', email: 'navaneetha@orangy.design' },
+                { label: 'Employee', email: 'alex.carter@orangy.studio' },
+              ].map((acc) => (
+                <button
+                  key={acc.email}
+                  type="button"
+                  onClick={() => {
+                    setEmail(acc.email);
+                    setError(null);
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded border border-studio-border/50 bg-studio-bg/20 hover:bg-studio-bg/50 transition-colors flex items-center justify-between text-[11px] text-studio-text"
+                >
+                  <span className="font-medium text-studio-text">{acc.label}</span>
+                  <span className="text-studio-muted font-mono text-[10px]">{acc.email}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
